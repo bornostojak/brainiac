@@ -178,6 +178,12 @@ Project pages show a vendor table above tasks, with unique active-agent counts,
 current work and time to inactivity. Each task's first column has a pulsing ball
 when agents report current work; hover or keyboard-focus it to see every agent
 and their work. Agents may share tasks. Static ownership does not imply activity.
+The vendor table also shows per-agent remaining tokens, context headroom and
+reported account allowance, including presence-only agents and inactive agents'
+last readings. Missing measurements appear as unknown and old readings stay
+labelled stale. Allowance readings are never summed across agents, since agents
+may share the same vendor account. Task owners without usage reports remain
+visible with unknown limits.
 
 Prefer MCP `report_work` or POST `/api/v1/projects/PROJECT/reports` to batch task
 patches, project-specific agent activity, optional usage and a handoff message in

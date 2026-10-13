@@ -856,6 +856,10 @@ func (s *Store) Summary(ctx context.Context, pid, agent, status string) (Doc, er
 	projects = Filter(projects, map[string]string{"id": pid})
 	attachActivity(tasks, projects, presence)
 	reports := []Doc{}
+	usageByAgent := map[string]Doc{}
+	for _, u := range usage {
+		usageByAgent[Text(u, "agent")] = u
+	}
 	for _, p := range projects {
 		p = clone(p)
 		pt := Filter(tasks, map[string]string{"projectId": Text(p, "id")})
@@ -885,10 +889,36 @@ func (s *Store) Summary(ctx context.Context, pid, agent, status string) (Doc, er
 		p["blockedCount"] = blocked
 		p["activeTaskCount"] = active
 		p["agents"] = []Doc{}
-		for _, u := range usage {
-			if owners[Text(u, "agent")] {
-				p["agents"] = append(p["agents"].([]Doc), u)
+		presenceByAgent := map[string]Doc{}
+		for _, a := range presence {
+			if Text(a, "projectId") == Text(p, "id") {
+				owners[Text(a, "agent")] = true
+				presenceByAgent[Text(a, "agent")] = a
 			}
+		}
+		ids := []string{}
+		for agent := range owners {
+			ids = append(ids, agent)
+		}
+		sort.Strings(ids)
+		for _, agent := range ids {
+			u := usageByAgent[agent]
+			if u == nil {
+				u = Doc{"agent": agent, "reported": false}
+			} else {
+				u = clone(u)
+				u["reported"] = true
+			}
+			if a := presenceByAgent[agent]; a != nil {
+				if Text(a, "provider") != "Unknown" {
+					u["provider"] = Text(a, "provider")
+				}
+				if Text(u, "model") == "" {
+					u["model"] = Text(a, "model")
+				}
+			}
+			u["provider"] = canonicalProvider(Text(u, "provider"))
+			p["agents"] = append(p["agents"].([]Doc), u)
 		}
 		reports = append(reports, p)
 	}

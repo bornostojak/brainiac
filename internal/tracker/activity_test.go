@@ -234,3 +234,38 @@ func TestAgentActivityPersistenceAndNoOwnershipInference(t *testing.T) {
 		t.Fatal("restart must publish one inactivity event", expired)
 	}
 }
+
+func TestProjectUsageIncludesPresenceAndUnknownTaskOwners(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	pid := Text(project(t, s, "Limits"), "id")
+	if _, e := s.SaveTask(ctx, pid, "", Doc{"name": "Owned", "agent": "unknown-owner"}); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := s.ReportWork(ctx, pid, Doc{"agent": "reviewer", "provider": "OpenAI", "usage": map[string]any{"tokenBudget": float64(10000), "tokensUsed": float64(2000), "contextTokens": float64(1000), "contextLimit": float64(5000), "accountRemainingPercent": float64(45)}}); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := s.SaveUsage(ctx, "unrelated-agent", Doc{"tokensRemaining": float64(99)}); e != nil {
+		t.Fatal(e)
+	}
+	view, e := s.Summary(ctx, pid, "", "")
+	view = must(t, view, e)
+	agents := view["projects"].([]Doc)[0]["agents"].([]Doc)
+	if len(agents) != 2 || Text(agents[0], "agent") != "reviewer" || Num(agents[0], "tokensRemaining") != 8000 || Num(agents[0], "accountRemainingPercent") != 45 {
+		t.Fatal("presence-only agent usage missing or unrelated usage leaked", agents)
+	}
+	if agents[1]["reported"] != false || agents[1]["tokensRemaining"] != nil {
+		t.Fatal("missing usage was not explicitly unknown", agents[1])
+	}
+	if _, e = s.Get(ctx, "agent", "unknown-owner"); e == nil {
+		t.Fatal("summary persisted a fabricated usage observation")
+	}
+	if _, e = s.ReportWork(ctx, pid, Doc{"agent": "reviewer", "active": false}); e != nil {
+		t.Fatal(e)
+	}
+	view, e = s.Summary(ctx, pid, "", "")
+	view = must(t, view, e)
+	if Num(view["projects"].([]Doc)[0]["agents"].([]Doc)[0], "tokensRemaining") != 8000 {
+		t.Fatal("stopping activity hid the last usage reading")
+	}
+}

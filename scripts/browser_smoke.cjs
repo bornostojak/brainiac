@@ -31,7 +31,7 @@ async function api(method, path, payload) {
   });
   await api('PUT', '/agents/browser-builder/usage', {
     model: 'reported-model', tokensRemaining: 16000, contextTokens: 40000,
-    contextLimit: 200000, observedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+    contextLimit: 200000, accountRemainingPercent: 45, observedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
   });
   await api('POST', `/projects/${project.id}/reports`, {
     agent: 'browser-builder', provider: 'OpenAI', workingOn: 'API implementation',
@@ -40,6 +40,7 @@ async function api(method, path, payload) {
   await api('POST', `/projects/${project.id}/reports`, {
     agent: 'browser-helper', provider: 'OpenAI', workingOn: 'Reviewing edge cases',
     tasks: [{ taskId: root.id, workingOn: 'Reviewing edge cases' }],
+    usage: { tokensRemaining: 8000, contextTokens: 10000, contextLimit: 50000, accountRemainingPercent: 70 },
   });
   await api('POST', `/projects/${project.id}/reports`, {
     agent: 'browser-reviewer', provider: 'Anthropic', workingOn: 'Checking acceptance',
@@ -56,6 +57,11 @@ async function api(method, path, payload) {
     assert.ok((await page.locator('#overview').innerText()).includes('55%'));
     const openai = page.locator('.vendor-table tbody tr').filter({ hasText: 'OpenAI' });
     assert.equal(await openai.locator('td').nth(1).innerText(), '2');
+    const limits = await openai.locator('.vendor-limits').innerText();
+    assert.ok(limits.includes('tokens left 16K') && limits.includes('ctx left 160K (80%)') && limits.includes('allowance 45% left'));
+    assert.ok(limits.includes('tokens left 8K') && limits.includes('allowance 70% left'));
+    assert.ok((await page.locator('.usage-list').innerText()).includes('browser-helper'));
+    assert.ok((await page.locator('.vendor-table').innerText()).includes('allowance unknown'));
     assert.equal(await page.locator('.activity-ball').count(), 1);
     await page.locator('.activity-cell.working').first().hover();
     assert.ok((await page.locator('.agent-tooltip').first().innerText()).includes('Reviewing edge cases'));
@@ -80,6 +86,7 @@ async function api(method, path, payload) {
     }
     await page.waitForFunction(() => [...document.querySelectorAll('.vendor-table tbody tr')].some(row => row.children[0].textContent === 'OpenAI' && row.children[1].textContent === '0'));
     assert.equal(await page.locator('.item').first().locator('.activity-ball').count(), 0);
+    assert.ok((await openai.locator('.vendor-limits').innerText()).includes('tokens left 16K'));
     const other = await api('POST', '/projects', { name: 'Another project needing input' });
     const otherPage = await browser.newPage();
     await otherPage.goto(base + '/projects/' + other.id);
