@@ -66,7 +66,11 @@ func exerciseMCP(t *testing.T, transport mcp.Transport) {
 	invoke("get_input_request", tracker.Doc{"requestId": question["id"]})
 	invoke("update_task", tracker.Doc{"projectId": pid, "taskId": tid, "percent": 40, "readme": "MCP handoff", "expectedRevision": 1})
 	invoke("report_agent_usage", tracker.Doc{"agent": "builder", "tokensRemaining": 5000, "contextTokens": 2000, "contextLimit": 10000})
-	invoke("report_work", tracker.Doc{"projectId": pid, "agent": "builder", "provider": "OpenAI", "workingOn": "API implementation", "taskUpdates": []any{map[string]any{"taskId": tid, "percent": 45}}, "usage": map[string]any{"tokensRemaining": 4900}})
+	invoke("report_work", tracker.Doc{"projectId": pid, "agent": "builder", "provider": "OpenAI", "workingOn": "API implementation", "workSummary": "Building validation and checking error handling.", "taskUpdates": []any{map[string]any{"taskId": tid, "percent": 45}}, "usage": map[string]any{"tokensRemaining": 4900}})
+	current := invoke("get_project", tracker.Doc{"projectId": pid})["result"].(map[string]any)
+	if current["workSummary"] != "Building validation and checking error handling." {
+		t.Fatal("MCP work summary not persisted")
+	}
 	agents := invoke("list_project_agents", tracker.Doc{"projectId": pid})["result"].(map[string]any)
 	if len(agents["agents"].([]any)) != 1 {
 		t.Fatal("project activity not reported")

@@ -282,16 +282,16 @@ func merge(d, p Doc) {
 	}
 }
 
-var projectLimits = map[string]int{"name": 200, "description": 2000, "readme": 65536, "externalKey": 1024}
+var projectLimits = map[string]int{"name": 200, "description": 2000, "readme": 65536, "externalKey": 1024, "workSummary": 1000}
 var taskLimits = map[string]int{"name": 200, "detail": 2000, "next": 2000, "verification": 2000, "readme": 65536, "agent": 128, "parentId": 64}
 
 func (s *Store) CreateProject(ctx context.Context, payload Doc) (Doc, error) {
-	if err := fields(payload, "name description readme externalKey lifecycle activity"); err != nil {
+	if err := fields(payload, "name description readme externalKey lifecycle activity workSummary"); err != nil {
 		return nil, err
 	}
 	return s.write(ctx, func(tx *sql.Tx) (Doc, error) {
 		id := uuid.NewString()
-		d := Doc{"id": id, "name": "", "description": "", "readme": "", "externalKey": "", "lifecycle": "ongoing", "activity": "inactive", "revision": float64(0), "createdAt": stamp(s.Now())}
+		d := Doc{"id": id, "name": "", "description": "", "readme": "", "externalKey": "", "workSummary": "", "lifecycle": "ongoing", "activity": "inactive", "revision": float64(0), "createdAt": stamp(s.Now())}
 		merge(d, payload)
 		if err := validateProject(d); err != nil {
 			return nil, err
@@ -305,6 +305,7 @@ func (s *Store) CreateProject(ctx context.Context, payload Doc) (Doc, error) {
 				return nil, conflict("externalKey already belongs to a project")
 			}
 		}
+		s.setWorkSummary(d, payload, Text(payload, "actor"))
 		s.touch(d)
 		if _, explicit := payload["activity"]; explicit {
 			d["activity"] = payload["activity"]
@@ -329,7 +330,7 @@ func validateProject(d Doc) error {
 	return oneOf(d, "activity", "active inactive")
 }
 func (s *Store) UpdateProject(ctx context.Context, id string, payload Doc) (Doc, error) {
-	if err := fields(payload, "name description readme lifecycle activity"); err != nil {
+	if err := fields(payload, "name description readme lifecycle activity workSummary"); err != nil {
 		return nil, err
 	}
 	return s.write(ctx, func(tx *sql.Tx) (Doc, error) {
@@ -345,6 +346,7 @@ func (s *Store) UpdateProject(ctx context.Context, id string, payload Doc) (Doc,
 		if err = validateProject(d); err != nil {
 			return nil, err
 		}
+		s.setWorkSummary(d, payload, Text(payload, "actor"))
 		s.touch(d)
 		if _, ok := payload["activity"]; ok {
 			d["activity"] = payload["activity"]
@@ -358,6 +360,14 @@ func (s *Store) UpdateProject(ctx context.Context, id string, payload Doc) (Doc,
 		_, err = s.event(ctx, tx, "project.updated", Text(payload, "actor"), id, "", "", Text(d, "name"), "")
 		return d, err
 	})
+}
+
+func (s *Store) setWorkSummary(project, payload Doc, actor string) {
+	if value, ok := payload["workSummary"]; ok {
+		project["workSummary"] = value
+		project["workSummaryAt"] = stamp(s.Now())
+		project["workSummaryBy"] = actor
+	}
 }
 func (s *Store) Heartbeat(ctx context.Context, id string, payload Doc) (Doc, error) {
 	if err := fields(payload, ""); err != nil {

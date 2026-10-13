@@ -12,6 +12,7 @@ func OpenAPI() map[string]any {
 	}
 	props["percent"] = map[string]any{"type": "number", "minimum": 0, "maximum": 100}
 	props["workingOn"] = str()
+	props["workSummary"] = map[string]any{"type": "string", "maxLength": 1000}
 	props["active"] = map[string]any{"type": "boolean"}
 	props["revision"] = map[string]any{"type": "integer", "minimum": 1}
 	props["expectedRevision"] = map[string]any{"type": "integer", "minimum": 1}
@@ -32,8 +33,8 @@ func OpenAPI() map[string]any {
 		}
 		schemas[name] = d
 	}
-	schema("ProjectCreate", "name description readme externalKey lifecycle activity actor", "name")
-	schema("ProjectPatch", "name description readme lifecycle activity actor expectedRevision", "")
+	schema("ProjectCreate", "name description readme externalKey lifecycle activity workSummary actor", "name")
+	schema("ProjectPatch", "name description readme lifecycle activity workSummary actor expectedRevision", "")
 	schema("TaskCreate", "name parentId status percent agent detail next verification readme actor", "name")
 	schema("TaskPatch", "name status percent agent detail next verification readme actor expectedRevision", "")
 	schema("Heartbeat", "actor expectedRevision", "")
@@ -51,7 +52,7 @@ func OpenAPI() map[string]any {
 		schemas[name].(map[string]any)["properties"].(map[string]any)["kind"] = map[string]any{"type": "string", "enum": []string{"guidance", "reread_skill", "refresh_tools"}}
 	}
 	schema("InstructionAck", "agent revision", "agent revision")
-	activityFields := "agent provider model workingOn actor expectedRevision"
+	activityFields := "agent provider model workingOn workSummary actor expectedRevision"
 	schema("WorkReport", activityFields, "agent")
 	report := schemas["WorkReport"].(map[string]any)
 	reportProps := report["properties"].(map[string]any)
@@ -69,7 +70,7 @@ func OpenAPI() map[string]any {
 	schema("BatchedInputRequest", "title message taskId externalKey", "title message")
 	reportProps["inputRequest"] = schemas["BatchedInputRequest"]
 	activityProps := map[string]any{}
-	for _, key := range strings.Fields("agent provider model workingOn active tasks actor expectedRevision") {
+	for _, key := range strings.Fields("agent provider model workingOn workSummary active tasks actor expectedRevision") {
 		activityProps[key] = reportProps[key]
 	}
 	schemas["ActivityReport"] = map[string]any{"type": "object", "properties": activityProps, "additionalProperties": false}

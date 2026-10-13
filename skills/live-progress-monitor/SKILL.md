@@ -71,6 +71,12 @@ the board repeatedly without a coordination need. Reuse saved IDs/URLs. With
 Brainiac, prefer one `report_work` call combining task updates and agent activity;
 the original Python fallback uses its existing PATCH API at the same cadence.
 
+For Brainiac, the project lead includes a brief `workSummary` in that same report
+when focus changes, describing what is being built/fixed and the next step.
+Workers maintain their own `workingOn` plus actual vendor/model. Include measured
+usage values and limits when available; unknown values remain unknown. The header
+and compact per-agent table update live; no additional per-action call is needed.
+
 With Brainiac, include a genuine user question as `inputRequest` in a blocker
 report, or use `request_input`; popups reach all open projects. Dismissal is not
 approval. Check `list_instructions` once at session start, then handle pending

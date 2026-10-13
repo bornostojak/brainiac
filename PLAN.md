@@ -49,3 +49,10 @@ browser popups with optional desktop permission, safe inline answers and revisio
 conflicts. Independent service instructions use stable keys, per-agent revision
 receipts and embedded-skill fingerprints; return pending guidance with normal
 reports to avoid extra polling. Expose equivalent REST/MCP tools and skill resources.
+
+Project overview refinement: 2:1 header split with a live concise workSummary;
+project lead updates it through existing report batches, workers update workingOn.
+Replace grouped vendor rows with one compact row per agent, explicit vendor/model
+columns and used/limit bars with remaining values. Keep unknown/stale readings
+truthful, retain all columns with mobile horizontal scrolling, update installed
+skills/deployments and publish the versioned Git release after validation.

@@ -37,10 +37,10 @@ func (s *Store) decorateActivity(d Doc) {
 // ReportWork atomically batches task progress, agent presence and optional usage.
 // Presence is per project/agent; one agent on several tasks is counted only once.
 func (s *Store) ReportWork(ctx context.Context, pid string, payload Doc) (Doc, error) {
-	if err := fields(payload, "agent provider model active workingOn tasks taskUpdates usage message inputRequest"); err != nil {
+	if err := fields(payload, "agent provider model active workingOn workSummary tasks taskUpdates usage message inputRequest"); err != nil {
 		return nil, err
 	}
-	if err := texts(payload, "agent", map[string]int{"agent": 128, "provider": 128, "model": 128, "workingOn": 2000, "message": 8000}); err != nil {
+	if err := texts(payload, "agent", map[string]int{"agent": 128, "provider": 128, "model": 128, "workingOn": 2000, "workSummary": 1000, "message": 8000}); err != nil {
 		return nil, err
 	}
 	if strings.Contains(Text(payload, "agent"), "/") {
@@ -216,6 +216,7 @@ func (s *Store) ReportWork(ctx context.Context, pid string, payload Doc) (Doc, e
 		if err != nil {
 			return nil, err
 		}
+		s.setWorkSummary(project, payload, actor)
 		s.touch(project)
 		if err = put(ctx, tx, "project", pid, "", project); err != nil {
 			return nil, err
@@ -226,6 +227,15 @@ func (s *Store) ReportWork(ctx context.Context, pid string, payload Doc) (Doc, e
 		}
 		if _, err = s.event(ctx, tx, "agent.activity", actor, pid, "", "", message, ""); err != nil {
 			return nil, err
+		}
+		if _, ok := payload["workSummary"]; ok {
+			summary := Text(payload, "workSummary")
+			if summary == "" {
+				summary = "Project work summary cleared"
+			}
+			if _, err = s.event(ctx, tx, "project.work_summary", actor, pid, "", "", summary, ""); err != nil {
+				return nil, err
+			}
 		}
 		if Text(payload, "message") != "" {
 			if _, err = s.event(ctx, tx, "message", actor, pid, "", "", Text(payload, "message"), ""); err != nil {

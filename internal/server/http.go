@@ -600,6 +600,9 @@ func (a *App) Markdown(ctx context.Context, path string) (string, error) {
 			}
 		} else {
 			md += fmt.Sprintf("Lifecycle: %s · Activity: %s · Last activity: %s\n\n%s\n\n", tracker.Text(project, "lifecycle"), tracker.Text(project, "activity"), tracker.Text(project, "lastActivityAt"), tracker.Text(project, "description"))
+			if focus := tracker.Text(project, "workSummary"); focus != "" {
+				md += "Current reported work: " + focus + "\n\n"
+			}
 			tasks, err := a.Store.List(ctx, "task")
 			if err != nil {
 				return "", err
@@ -693,6 +696,15 @@ after exactly one hour; static ownership and task status alone do not count.
 GET /api/v1/projects/{projectId}/agents returns agents and vendor active counts.
 POST /api/v1/projects/{projectId}/agents/{agent}/activity is a quiet check-in.
 Project summaries include agentActivity/vendors and task activeAgents.
+
+The project lead includes workSummary in the same report: 1–2 plain sentences
+about what is being built/fixed now and the next meaningful step (max 1000 UTF-8
+bytes). It appears beside project completion and updates through SSE. Omit it
+when unchanged. Other agents update their own workingOn with actual provider/model;
+if no project summary exists the browser shows active agents' reported work.
+Projects can also create/PATCH workSummary; server-managed workSummaryAt/By track
+its timestamp/author. Reads do not update them. Known usage values and limits
+produce compact used/limit bars in the per-agent table; unknown limits stay unknown.
 
 Report work start, meaningful milestones/phase changes, blockers, handoff and
 finish. During uninterrupted work refresh around every 10–15 minutes. Cache IDs

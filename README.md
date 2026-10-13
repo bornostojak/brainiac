@@ -174,12 +174,22 @@ execute tools or start model turns.
 
 ### Active agents and efficient reporting
 
-Project pages show a vendor table above tasks, with unique active-agent counts,
-current work and time to inactivity. Each task's first column has a pulsing ball
+Project pages split the header 2:1: project name/completion on the left and a
+concise live work summary on the right. The project lead includes `workSummary`
+in existing work reports at start, focus changes, blockers and completion.
+Unchanged check-ins omit it. Other agents keep their own `workingOn` current;
+if no project summary exists, the header shows active agents' reported work.
+Summary text updates through SSE, with polling fallback and preserved expansion.
+
+A compact table above tasks has one row per agent, with agent name, vendor,
+model, current work, tokens, context and allowance. Bars represent used/limit,
+with current and limit values plus remaining capacity beneath. Unknown ratios
+show a neutral track instead of a fabricated bar. Mobile keeps every column in
+a horizontally scrollable table and stacks the header panels.
+Each task's first column has a pulsing ball
 when agents report current work; hover or keyboard-focus it to see every agent
 and their work. Agents may share tasks. Static ownership does not imply activity.
-The vendor table also shows per-agent remaining tokens, context headroom and
-reported account allowance, including presence-only agents and inactive agents'
+The agent table includes presence-only agents and inactive agents'
 last readings. Missing measurements appear as unknown and old readings stay
 labelled stale. Allowance readings are never summed across agents, since agents
 may share the same vendor account. Task owners without usage reports remain
@@ -193,7 +203,7 @@ blocker, handoff and finish. During uninterrupted work, refresh around every
 change. Keep session IDs/cursors and avoid redundant summaries or busy-polling.
 
 ```json
-{"agent":"builder-project","provider":"OpenAI","workingOn":"Implementing request validation","taskUpdates":[{"taskId":"TASK","percent":40,"status":"active","detail":"Validation implemented"}],"message":"Ready for review"}
+{"agent":"builder-project","provider":"OpenAI","workingOn":"Implementing request validation","workSummary":"Implementing validation; checking error handling next.","taskUpdates":[{"taskId":"TASK","percent":40,"status":"active","detail":"Validation implemented"}],"message":"Ready for review"}
 ```
 
 Each project/agent activity report lasts one hour, independent of the 90-minute
