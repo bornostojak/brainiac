@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Brainiac · progress</title><link rel="stylesheet" href="/assets/style.css"><script src="/assets/app.js" defer></script></head>
+<body><header><a class="brand" href="/">brainiac / progress</a><nav><a href="/knowledge">Knowledge</a><a href="/README.md">API guide</a><span id="connection" class="muted" role="status">Connecting…</span></nav></header>
+<section id="overview" class="panel"><h1 id="title">Projects</h1><p class="muted">Loading reported progress…</p></section>
+<div class="toolbar"><h2 id="list-title">Projects</h2><div class="filters"><input id="search" type="search" aria-label="Search" placeholder="Search…"><select id="filter" aria-label="Lifecycle or task status"></select><select id="activity" aria-label="Activity filter"><option value="">All activity</option><option value="active">Active</option><option value="inactive">Inactive</option></select><label id="subtasks-label" hidden><input id="subtasks" type="checkbox"> Show subtasks</label></div></div>
+<main id="list" class="rows" aria-live="polite"></main>
+<div class="bottom"><details class="panel"><summary>Recent updates</summary><div id="history"></div></details><details class="panel"><summary>API & installation</summary><p>Agents update this board through <a href="/README.md">REST or MCP</a>. Progress estimates, context capacity, token budgets and account allowance are separate readings.</p><p>Download <a href="/install.sh">install.sh</a>, inspect it, then run it. The installer asks which installed harnesses to use.</p><pre>curl -fsS http://127.0.0.1:8765/install.sh -o /tmp/brainiac-install.sh
+sh /tmp/brainiac-install.sh --url http://127.0.0.1:8765</pre></details></div>
+<footer>Reported state · live updates · <a href="/api/v1/openapi.json">OpenAPI</a></footer></body></html>
