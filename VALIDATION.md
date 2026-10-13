@@ -131,3 +131,25 @@ and database artifacts. The active private deployment settings remain local.
   passed. The rebuilt Compose service remains healthy on port 3011 with existing
   IDs, knowledge revisions, numbered history and private access settings intact.
   Both installed Codex skill packages and the used installer copy were refreshed.
+
+## Live project focus and compact agent table (1.2.0)
+
+- Project work summaries passed bounded text validation, author/timestamp
+  provenance, revision guards and atomic rollback with invalid report batches.
+  Reads and worker reports without a summary leave its provenance unchanged.
+  HTTP and stdio MCP clients reported and retrieved the shared focus field.
+- Chromium verified the desktop 2:1 header ratio, live summary updates without
+  reload, fallback to active agents' work, and preserved task expansion.
+  Mobile stacks the header panels and scrolls all agent columns inside the panel
+  without overflowing the page.
+- The table has one row per agent with explicit vendor/model, activity, current
+  work and compact token/context/allowance bars. Checks verified used/limit and
+  remaining values, actual progress-bar ranges, stale labels, and a known
+  remaining count with unknown budget showing no fabricated ratio.
+- Existing subtasks, global input popups, responses across tabs, polling fallback,
+  filtering and safe knowledge rendering remained functional.
+- Go tests, race detection, vet, Python checks and both skill validators passed.
+  The deployment preserves project/task IDs, knowledge revisions and private
+  settings. Updated skill packages teach the project lead to maintain summary
+  text in existing meaningful report batches; workers update their own focus and
+  actual vendor/model. No additional per-action request is required.
