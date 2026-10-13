@@ -87,10 +87,21 @@ func run() error {
 	}
 	defer store.Close()
 	app := server.New(store)
+	allowed, configured := os.LookupEnv("IP_ALLOWLIST")
+	if !configured {
+		allowed = server.DefaultIPAllowlist
+	}
+	if err = app.ConfigureIPAllowlist(allowed); err != nil {
+		return err
+	}
 	app.EnableUI()
 	app.EnableMCP()
 	app.EnableDistribution()
-	listener, err := net.Listen("tcp", net.JoinHostPort(ip, strconv.Itoa(port)))
+	network := "tcp"
+	if net.ParseIP(ip).To4() != nil {
+		network = "tcp4"
+	}
+	listener, err := net.Listen(network, net.JoinHostPort(ip, strconv.Itoa(port)))
 	if err != nil {
 		return err
 	}

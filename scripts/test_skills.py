@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from urllib.error import HTTPError
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -93,6 +94,9 @@ class SkillChecks(unittest.TestCase):
             result = discover.discover(args)
             self.assertEqual(result['backend'], 'legacy')
             self.assertEqual(result['checkedUrl'], 'http://explicit:9999')
+            discover.request = lambda *a, **kw: (_ for _ in ()).throw(HTTPError('http://explicit:9999/healthz', 403, 'Forbidden', {}, None))
+            with self.assertRaisesRegex(ValueError, 'IP_ALLOWLIST'):
+                discover.discover(args)
         finally:
             discover.request = original_request
             if original_url is None:

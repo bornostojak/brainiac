@@ -21,12 +21,14 @@ import (
 )
 
 type App struct {
-	Store *tracker.Store
-	mux   *http.ServeMux
+	Store     *tracker.Store
+	mux       *http.ServeMux
+	allowlist *IPAllowlist
 }
 
 func New(s *tracker.Store) *App {
 	a := &App{Store: s, mux: http.NewServeMux()}
+	_ = a.ConfigureIPAllowlist(DefaultIPAllowlist)
 	a.mux.HandleFunc("GET /healthz", a.health)
 	a.mux.HandleFunc("/api/v1/", a.api)
 	a.mux.HandleFunc("GET /events", a.events)
@@ -43,6 +45,10 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'")
+	if !a.allowlist.allowsRequest(r) {
+		fail(w, &tracker.Error{Status: 403, Message: "Client IP is not allowed"})
+		return
+	}
 	if r.Method != "GET" && r.Method != "HEAD" {
 		origin := r.Header.Get("Origin")
 		if origin != "" {
@@ -652,5 +658,11 @@ MCP. For scripted use, pass --harness NAMES with --mcp or --no-mcp. Skill packag
       -d '{"percent":40,"status":"active","actor":"builder","next":"Run acceptance checks"}'
 
 One instance owns the SQLite volume. Notifications are durable and unpruned.
-No authentication or HTTPS in v1. Default publication is loopback only.
+No authentication or HTTPS in v1. IP_ALLOWLIST defaults to empty (no client IPs
+allowed). Requests whose actual socket destination is in 127.0.0.0/24 bypass it.
+Other destinations require a matching socket peer IP or IPv4/IPv6 CIDR in the
+comma-separated list; denied requests receive 403. Host/forwarding headers cannot
+enable the bypass. Invalid entries fail startup; an empty list is valid.
+Compose host networking preserves peer IPs. Configure LISTEN_IP and LISTEN_PORT
+separately; 0.0.0.0 is a bind address, not a client URL.
 `

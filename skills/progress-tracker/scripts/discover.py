@@ -35,6 +35,11 @@ def discover(args):
         health = request(base, '/healthz')
         if health.get('service') != 'brainiac' or health.get('apiVersion') != 'v1' or health.get('status') != 'ok':
             return {'backend': 'legacy', 'reason': 'Service is not compatible Brainiac API v1', 'checkedUrl': base}
+    except HTTPError as error:
+        error.close()
+        if error.code == 403:
+            raise ValueError('Brainiac denied access (HTTP 403); configure IP_ALLOWLIST for this client') from error
+        return {'backend': 'legacy', 'reason': str(error), 'checkedUrl': base}
     except (OSError, ValueError, URLError) as error:
         return {'backend': 'legacy', 'reason': str(error), 'checkedUrl': base}
     if project_id:

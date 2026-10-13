@@ -20,17 +20,46 @@ removes the data. Run only one service instance against a database.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `LISTEN_IP` | `127.0.0.1` | Native listener IP; Compose's published host IP |
-| `LISTEN_PORT` | `3011` | Native listener port; Compose's published host port |
+| `LISTEN_IP` | `127.0.0.1` | Listener IP in native and Compose mode |
+| `LISTEN_PORT` | `3011` | Listener port in native and Compose mode |
+| `IP_ALLOWLIST` | empty | Comma-separated allowed client IPs or IPv4/IPv6 CIDRs |
 | `ACTIVITY_TIMEOUT` | `90m` | Time since a scoped write before inactivity |
 | `USAGE_STALE_AFTER` | `5m` | Age after which agent usage is labelled stale |
 | `DATA_PATH` | `data/brainiac.db` | Native SQLite location |
 
-Inside Docker, the process listens on `0.0.0.0:3011` so port forwarding works.
-Compose explicitly binds the host publication to `LISTEN_IP:LISTEN_PORT`, which
-defaults to loopback. See [Docker's port configuration](https://docs.docker.com/reference/compose-file/services/#ports).
+Compose uses host networking so the service sees the original socket peer IP,
+including local loopback requests. This avoids accepting a Docker gateway as a
+substitute for the real client. Host networking works on Linux; Docker Desktop
+requires its host-networking feature enabled. Listener settings are applied
+directly, without a separate container-port mapping.
+
+The example configuration binds to loopback and leaves the allowlist empty.
+An empty allowlist grants access to no client addresses.
+Requests whose actual accepted socket destination is in `127.0.0.0/24` always
+bypass the allowlist, keeping local clients and healthchecks working. Requests
+to any other listener address require the client peer IP to match `IP_ALLOWLIST`.
+All HTTP routes, including API, MCP, SSE, README, health and installer endpoints,
+apply the same policy and return `403` when denied. The service checks socket
+addresses, not `Host`, `Forwarded`, `X-Forwarded-For` or `X-Real-IP` headers.
+
+To allow a network, add its CIDR explicitly, for example:
+
+```dotenv
+LISTEN_IP=0.0.0.0
+LISTEN_PORT=3011
+IP_ALLOWLIST=192.0.2.0/24,2001:db8::/32
+```
+
+Individual addresses and CIDRs can be mixed; IPv4 and IPv6 are supported.
+An empty allowlist is valid and denies access outside the destination exemption;
+invalid addresses or CIDRs fail startup. The exemption is exactly `127.0.0.0/24`,
+not all of `127.0.0.0/8` or `::1`. IPv4-mapped IPv6 addresses are normalized.
+A proxy connecting to `127.0.0.0/24` uses the local bypass; a proxy on another
+interface is checked by its socket peer IP. Forwarding headers do not grant access. Connect using `127.0.0.1` locally or an allowed reachable host IP,
+not the wildcard listener address `0.0.0.0`.
+
 Changing `.env` and running `docker compose up -d` recreates the container with
-the new configuration, preserving the volume. No boot services or firewall
+the new configuration, preserving the volume. No boot services or host firewall
 changes are required.
 
 If Docker Hub rate-limits base-image pulls, the same official images can be

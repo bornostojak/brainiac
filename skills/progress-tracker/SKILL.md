@@ -78,5 +78,12 @@ same service. Tools cover projects/tasks, summaries, notifications/messages,
 knowledge/revisions, and usage. Resources expose guide and context Markdown.
 
 Browser access is a compact read-oriented overview. Report the project URL.
+The default client origin is `http://127.0.0.1:3011` even when the listener binds
+to `0.0.0.0`. Remote clients need their real peer IP or CIDR in `IP_ALLOWLIST`.
+The allowlist defaults to empty. Connections whose actual socket destination
+is in `127.0.0.0/24` bypass it; all other destinations require an allowed client
+IP/CIDR. Host and forwarded-IP headers cannot enable the bypass.
+Do not treat a `403` access denial as an outage or silently start a fallback;
+report the denial so the user can configure the intended client access.
 If an associated shared service later becomes unavailable, retain its IDs and
 report the outage; do not start another server or claim its state is current.

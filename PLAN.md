@@ -31,3 +31,9 @@ revisions. Writes and their events are atomic; reads never extend activity.
 Accepted additions: compact reported token/context/model/freshness indicators,
 and a served /install.sh that detects installed OpenCode, Claude Code and Codex,
 asks which targets the user wants, and distributes the primary/fallback skills.
+
+Networking update: this device listens on 0.0.0.0:3011. Enforce a global
+IP_ALLOWLIST (empty by default) supporting IPv4/IPv6 addresses and CIDRs.
+Connections whose actual socket destination is in 127.0.0.0/24 bypass the list;
+other destinations require an allowed peer IP. Host/forwarded headers are ignored. Compose host networking preserves socket
+peer IPs; update installed skill/configuration/installer copies used here.

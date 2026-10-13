@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -22,7 +23,14 @@ func testApp(t *testing.T) (*App, *httptest.Server) {
 		t.Fatal(e)
 	}
 	a := New(s)
-	server := httptest.NewServer(a)
+	server := httptest.NewUnstartedServer(a)
+	server.Listener.Close()
+	server.Listener, e = net.Listen("tcp4", "127.0.0.1:0")
+	if e != nil {
+		s.Close()
+		t.Fatal(e)
+	}
+	server.Start()
 	t.Cleanup(func() { server.Close(); s.Close() })
 	return a, server
 }

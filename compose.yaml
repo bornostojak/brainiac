@@ -2,21 +2,19 @@ services:
   brainiac:
     build: .
     restart: unless-stopped
-    ports:
-      - target: 3011
-        published: "${LISTEN_PORT:-3011}"
-        host_ip: "${LISTEN_IP:-127.0.0.1}"
-        protocol: tcp
+    # Preserve socket peer IPs, including loopback, for IP allowlist enforcement.
+    network_mode: host
     environment:
-      LISTEN_IP: 0.0.0.0
-      LISTEN_PORT: "3011"
+      LISTEN_IP: "${LISTEN_IP:-127.0.0.1}"
+      LISTEN_PORT: "${LISTEN_PORT:-3011}"
+      IP_ALLOWLIST: "${IP_ALLOWLIST-}"
       ACTIVITY_TIMEOUT: "${ACTIVITY_TIMEOUT:-90m}"
       USAGE_STALE_AFTER: "${USAGE_STALE_AFTER:-5m}"
       DATA_PATH: /data/brainiac.db
     volumes:
       - brainiac-data:/data
     healthcheck:
-      test: ["CMD", "brainiac", "healthcheck", "--url", "http://127.0.0.1:3011"]
+      test: ["CMD-SHELL", "brainiac healthcheck --url http://127.0.0.1:$$LISTEN_PORT"]
       interval: 15s
       timeout: 3s
       retries: 3

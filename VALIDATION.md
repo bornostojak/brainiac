@@ -44,3 +44,19 @@ healthcheck, MCP bridge, skill discovery and documentation. The rebuilt local
 deployment is healthy at `127.0.0.1:3011`; the installed Codex skill's saved
 origin also uses that address. Go and skill checks passed, and the migration
 preserved project/task IDs, knowledge revisions and notification history.
+
+## Listener and IP/CIDR access policy
+
+The default listener is `127.0.0.1:3011`, with an empty `IP_ALLOWLIST`.
+Requests whose actual socket destination is in `127.0.0.0/24` bypass the list;
+other destinations require an allowed client address or IPv4/IPv6 CIDR.
+Host/forwarding headers cannot enable the exemption. Compose uses host networking
+to preserve the real socket source and destination addresses.
+
+Go tests with race detection, vet and skill checks passed. Live checks returned
+`200` on `127.0.0.1` and `127.0.0.254`, and `403` on `127.0.1.1` and the LAN
+address, including requests with spoofed Host/forwarding headers. A disposable
+instance with an explicit CIDR allowed its matching client and was then removed.
+Existing project/task IDs, knowledge revisions and notification history survived
+the deployment. The used Codex skill packages and installer copy were refreshed;
+Existing harness settings were preserved.
