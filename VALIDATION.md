@@ -100,3 +100,34 @@ The generic `compose.example.yaml` validates using `.env.example`: loopback
 listener, port 3011, empty allowlist, persistent volume and healthcheck. Git and
 Docker ignores protect local environment files, overrides, saved skill origins
 and database artifacts. The active private deployment settings remain local.
+
+## Cross-project input, instructions and remaining limits (1.1.0)
+
+- Persistent input questions, retry deduplication, same-project task references,
+  atomic blocker/question reports, guarded answers and terminal-state protection
+  passed. Request and response events include the durable question ID and agent
+  routing label.
+- Independent instructions passed recipient/project filtering, acknowledgement
+  persistence, revision conflicts, retirement and redelivery after changes.
+  Publishing/acknowledging guidance leaves numbered cursors and project activity
+  unchanged. Work reports carry pending guidance without an extra polling call.
+- Embedded skill fingerprints match served package metadata. Unchanged restarts
+  retain receipts without repeated notices; changed content produces a new
+  independent revision. Reserved service notices reject external edits.
+- HTTP and stdio MCP clients exercised input requests, responses, instruction
+  tools/receipts and current-skill retrieval; resources include skill Markdown.
+  The deployed service exposes 34 tools and four resource templates.
+- Chromium passed cross-project popups, draft preservation during new arrivals,
+  dismissal/reopening, reload recovery, responses across tabs, Markdown alerts,
+  safe text rendering and polling with SSE deliberately disabled. Mobile popups
+  fit the viewport. Headless Chromium denied desktop notification permission;
+  in-page fallback passed, while operating-system delivery was not verified.
+- Project/vendor limits include task owners and presence-only agents, unknown
+  readings, stale observations, context headroom and reported allowance.
+  Remaining limits persist after an agent stops; unrelated agents are excluded.
+  Browser checks verified measured token/context/allowance values and compact
+  mobile layout. Vendor account allowances are never summed across agents.
+- Go tests, race detection, vet, Python skill checks and both skill validators
+  passed. The rebuilt Compose service remains healthy on port 3011 with existing
+  IDs, knowledge revisions, numbered history and private access settings intact.
+  Both installed Codex skill packages and the used installer copy were refreshed.
