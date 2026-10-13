@@ -28,16 +28,16 @@ class SkillChecks(unittest.TestCase):
             path = Path(directory) / 'opencode.jsonc'
             original = '// global comment\n{\n "model": "provider/model", // preserve this\n "mcp": {"other": {"url": "http://example.com/a//b",},},\n "nested": {"mcp": "leave alone"},\n}\n'
             path.write_text(original)
-            config.configure('opencode', 'http://127.0.0.1:8765', path)
+            config.configure('opencode', 'http://127.0.0.1:3011', path)
             updated = path.read_text()
             doc, _ = config.parse_jsonc(updated)
             self.assertEqual(doc['mcp']['other']['url'], 'http://example.com/a//b')
             self.assertEqual(doc['nested']['mcp'], 'leave alone')
             self.assertIn('// preserve this', updated)
             self.assertIn('// global comment', updated)
-            self.assertEqual(doc['mcp']['brainiac']['url'], 'http://127.0.0.1:8765/mcp')
+            self.assertEqual(doc['mcp']['brainiac']['url'], 'http://127.0.0.1:3011/mcp')
             self.assertEqual(len(list(path.parent.glob('*.brainiac-backup-*'))), 1)
-            config.configure('opencode', 'http://127.0.0.1:8765', path)
+            config.configure('opencode', 'http://127.0.0.1:3011', path)
             self.assertEqual(path.read_text(), updated)
             self.assertEqual(len(list(path.parent.glob('*.brainiac-backup-*'))), 1)
 

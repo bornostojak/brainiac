@@ -18,7 +18,7 @@ python3 ABSOLUTE_SKILL_PATH/scripts/discover.py --ensure --workspace /absolute/r
 ```
 
 The helper probes the authoritative `PROGRESS_TRACKER_URL`, the saved installer
-origin if present, or `http://127.0.0.1:8765`. It bounds requests and validates
+origin if present, or `http://127.0.0.1:3011`. It bounds requests and validates
 service identity and API v1. An unavailable service returns `backend: legacy`;
 continue with the Python workflow in [live-progress-monitor](../live-progress-monitor/SKILL.md),
 skipping its initial discovery check. Both skills are distributed together.

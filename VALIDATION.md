@@ -36,3 +36,11 @@ build arguments. The final Compose service remains running in the background.
 
 Usage values are agent-reported. This session exposes no measured remaining-token
 or context values, so the live project displays those readings as unknown.
+
+## Default-port update
+
+The default port is now `3011` across the native service, Docker image, Compose,
+healthcheck, MCP bridge, skill discovery and documentation. The rebuilt local
+deployment is healthy at `127.0.0.1:3011`; the installed Codex skill's saved
+origin also uses that address. Go and skill checks passed, and the migration
+preserved project/task IDs, knowledge revisions and notification history.

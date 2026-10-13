@@ -9,11 +9,11 @@ and skill installation. No authentication or HTTPS in this version.
 ```sh
 cp .env.example .env
 docker compose up -d --build
-curl --fail http://127.0.0.1:8765/healthz
+curl --fail http://127.0.0.1:3011/healthz
 ```
 
-Open [the homepage](http://127.0.0.1:8765), [the knowledge library](http://127.0.0.1:8765/knowledge),
-or [the live API guide](http://127.0.0.1:8765/README.md).
+Open [the homepage](http://127.0.0.1:3011), [the knowledge library](http://127.0.0.1:3011/knowledge),
+or [the live API guide](http://127.0.0.1:3011/README.md).
 Compose retains SQLite in the `brainiac-data` volume and restarts the service
 unless stopped. `docker compose down` preserves that volume; adding `--volumes`
 removes the data. Run only one service instance against a database.
@@ -21,12 +21,12 @@ removes the data. Run only one service instance against a database.
 | Variable | Default | Meaning |
 |---|---|---|
 | `LISTEN_IP` | `127.0.0.1` | Native listener IP; Compose's published host IP |
-| `LISTEN_PORT` | `8765` | Native listener port; Compose's published host port |
+| `LISTEN_PORT` | `3011` | Native listener port; Compose's published host port |
 | `ACTIVITY_TIMEOUT` | `90m` | Time since a scoped write before inactivity |
 | `USAGE_STALE_AFTER` | `5m` | Age after which agent usage is labelled stale |
 | `DATA_PATH` | `data/brainiac.db` | Native SQLite location |
 
-Inside Docker, the process listens on `0.0.0.0:8765` so port forwarding works.
+Inside Docker, the process listens on `0.0.0.0:3011` so port forwarding works.
 Compose explicitly binds the host publication to `LISTEN_IP:LISTEN_PORT`, which
 defaults to loopback. See [Docker's port configuration](https://docs.docker.com/reference/compose-file/services/#ports).
 Changing `.env` and running `docker compose up -d` recreates the container with
@@ -45,7 +45,7 @@ Native mode requires Go 1.26:
 
 ```sh
 go build -o bin/brainiac ./cmd/brainiac
-LISTEN_IP=127.0.0.1 LISTEN_PORT=8765 DATA_PATH=data/brainiac.db ./bin/brainiac
+LISTEN_IP=127.0.0.1 LISTEN_PORT=3011 DATA_PATH=data/brainiac.db ./bin/brainiac
 ```
 
 ## Install skills and MCP
@@ -53,8 +53,8 @@ LISTEN_IP=127.0.0.1 LISTEN_PORT=8765 DATA_PATH=data/brainiac.db ./bin/brainiac
 Fetch the installer from your running service and run it:
 
 ```sh
-curl -fsS http://127.0.0.1:8765/install.sh -o /tmp/brainiac-install.sh
-sh /tmp/brainiac-install.sh --url http://127.0.0.1:8765
+curl -fsS http://127.0.0.1:3011/install.sh -o /tmp/brainiac-install.sh
+sh /tmp/brainiac-install.sh --url http://127.0.0.1:3011
 ```
 
 It detects `codex`, `claude`, and `opencode` commands in PATH, asks which ones
@@ -65,7 +65,7 @@ origin with the primary skill, so discovery works with custom ports too.
 Explicit, noninteractive selection:
 
 ```sh
-sh /tmp/brainiac-install.sh --url http://127.0.0.1:8765 --harness codex,claude,opencode --mcp
+sh /tmp/brainiac-install.sh --url http://127.0.0.1:3011 --harness codex,claude,opencode --mcp
 ```
 
 Only select harnesses installed on that machine. Use `--no-mcp` for skills only,
@@ -92,7 +92,7 @@ Harness references: [OpenCode skills](https://dev.opencode.ai/v2/docs/skills/),
 ## Agent workflow
 
 The skill checks `PROGRESS_TRACKER_URL`, its saved installation origin, or
-`http://127.0.0.1:8765`, with bounded requests and service/API identity checks.
+`http://127.0.0.1:3011`, with bounded requests and service/API identity checks.
 An explicit origin is authoritative. If unavailable, it uses the unchanged
 temporary Python board without starting Docker. Existing task/backend
 associations are retained when an outage occurs.
@@ -109,11 +109,11 @@ Add `--ensure --name 'My project'` to create it when missing. Save the returned
 project ID and URLs and share them with other agents.
 
 ```sh
-curl --fail-with-body -X POST http://127.0.0.1:8765/api/v1/projects \
+curl --fail-with-body -X POST http://127.0.0.1:3011/api/v1/projects \
   -H 'Content-Type: application/json' \
   -d '{"name":"Example","externalKey":"example","actor":"orchestrator"}'
 
-curl --fail-with-body -X POST http://127.0.0.1:8765/api/v1/projects/PROJECT/tasks \
+curl --fail-with-body -X POST http://127.0.0.1:3011/api/v1/projects/PROJECT/tasks \
   -H 'Content-Type: application/json' \
   -d '{"name":"Implementation","agent":"builder-example","status":"active","percent":10,"next":"Build the accepted scope","actor":"orchestrator"}'
 ```
@@ -133,7 +133,7 @@ updates; archival remains inactive.
 ### Usage readings
 
 ```sh
-curl --fail-with-body -X PUT http://127.0.0.1:8765/api/v1/agents/builder-example/usage \
+curl --fail-with-body -X PUT http://127.0.0.1:3011/api/v1/agents/builder-example/usage \
   -H 'Content-Type: application/json' \
   -d '{"provider":"example","model":"agent-model","sessionId":"run-1","tokensRemaining":16000,"contextTokens":40000,"contextLimit":200000,"source":"harness report","actor":"builder-example"}'
 ```
@@ -149,7 +149,7 @@ do not sum a shared account allowance across tasks.
 ### Numbered collaboration feed
 
 ```sh
-curl --fail 'http://127.0.0.1:8765/api/v1/notifications/since/0?limit=100&wait=30'
+curl --fail 'http://127.0.0.1:3011/api/v1/notifications/since/0?limit=100&wait=30'
 ```
 
 Save `nextCursor`, drain pages while `hasMore`, then request `since/nextCursor`.
@@ -182,12 +182,12 @@ and unsafe Markdown links are disabled in rendered views.
 
 ## MCP
 
-Connect any compatible harness to `http://127.0.0.1:8765/mcp` using Streamable
+Connect any compatible harness to `http://127.0.0.1:3011/mcp` using Streamable
 HTTP. The official Go MCP SDK v1.8.0 negotiates supported protocol versions.
 For command-based clients, build the binary and configure:
 
 ```json
-{"command":"/absolute/path/brainiac","args":["mcp-stdio","--url","http://127.0.0.1:8765"]}
+{"command":"/absolute/path/brainiac","args":["mcp-stdio","--url","http://127.0.0.1:3011"]}
 ```
 
 The stdio process forwards to the existing service; it never opens another

@@ -643,11 +643,11 @@ MCP. For scripted use, pass --harness NAMES with --mcp or --no-mcp. Skill packag
 
 ## Request example
 
-    curl --fail-with-body -X POST http://127.0.0.1:8765/api/v1/projects \
+    curl --fail-with-body -X POST http://127.0.0.1:3011/api/v1/projects \
       -H 'Content-Type: application/json' \
       -d '{"name":"My project","externalKey":"/absolute/repository","actor":"orchestrator"}'
 
-    curl --fail-with-body -X PATCH http://127.0.0.1:8765/api/v1/projects/PROJECT/tasks/TASK \
+    curl --fail-with-body -X PATCH http://127.0.0.1:3011/api/v1/projects/PROJECT/tasks/TASK \
       -H 'Content-Type: application/json' \
       -d '{"percent":40,"status":"active","actor":"builder","next":"Run acceptance checks"}'
 

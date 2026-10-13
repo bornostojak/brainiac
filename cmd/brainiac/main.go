@@ -21,7 +21,7 @@ import (
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
 		flags := flag.NewFlagSet("healthcheck", flag.ExitOnError)
-		url := flags.String("url", "http://127.0.0.1:8765", "service URL")
+		url := flags.String("url", "http://127.0.0.1:3011", "service URL")
 		flags.Parse(os.Args[2:])
 		client := http.Client{Timeout: 2 * time.Second}
 		response, err := client.Get(*url + "/healthz")
@@ -52,7 +52,7 @@ func run() error {
 	defer cancel()
 	if len(os.Args) > 1 && os.Args[1] == "mcp-stdio" {
 		flags := flag.NewFlagSet("mcp-stdio", flag.ContinueOnError)
-		base := flags.String("url", env("PROGRESS_TRACKER_URL", "http://127.0.0.1:8765"), "shared service URL")
+		base := flags.String("url", env("PROGRESS_TRACKER_URL", "http://127.0.0.1:3011"), "shared service URL")
 		if err := flags.Parse(os.Args[2:]); err != nil {
 			return err
 		}
@@ -73,7 +73,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	port, err := strconv.Atoi(env("LISTEN_PORT", "8765"))
+	port, err := strconv.Atoi(env("LISTEN_PORT", "3011"))
 	if err != nil || port < 1 || port > 65535 {
 		return fmt.Errorf("LISTEN_PORT must be 1..65535")
 	}

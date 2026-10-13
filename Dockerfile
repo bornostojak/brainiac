@@ -11,6 +11,6 @@ FROM ${RUNTIME_IMAGE}
 RUN addgroup -g 10001 brainiac && adduser -D -u 10001 -G brainiac brainiac && mkdir /data && chown brainiac:brainiac /data
 COPY --from=build /out/brainiac /usr/local/bin/brainiac
 USER 10001:10001
-ENV LISTEN_IP=0.0.0.0 LISTEN_PORT=8765 DATA_PATH=/data/brainiac.db ACTIVITY_TIMEOUT=90m
-EXPOSE 8765
+ENV LISTEN_IP=0.0.0.0 LISTEN_PORT=3011 DATA_PATH=/data/brainiac.db ACTIVITY_TIMEOUT=90m
+EXPOSE 3011
 ENTRYPOINT ["brainiac"]

@@ -24,7 +24,7 @@ def request(base, path, payload=None):
 def discover(args):
     saved = Path(__file__).resolve().parent.parent / 'references' / 'server-url.txt'
     configured = os.environ.get('PROGRESS_TRACKER_URL')
-    base = (configured if configured is not None else saved.read_text().strip() if saved.exists() else 'http://127.0.0.1:8765').rstrip('/')
+    base = (configured if configured is not None else saved.read_text().strip() if saved.exists() else 'http://127.0.0.1:3011').rstrip('/')
     parsed = urlsplit(base)
     if parsed.scheme not in ('http', 'https') or not parsed.netloc or parsed.username or parsed.path or parsed.query or parsed.fragment:
         raise ValueError('PROGRESS_TRACKER_URL must be an HTTP(S) service origin')

@@ -3,20 +3,20 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - target: 8765
-        published: "${LISTEN_PORT:-8765}"
+      - target: 3011
+        published: "${LISTEN_PORT:-3011}"
         host_ip: "${LISTEN_IP:-127.0.0.1}"
         protocol: tcp
     environment:
       LISTEN_IP: 0.0.0.0
-      LISTEN_PORT: "8765"
+      LISTEN_PORT: "3011"
       ACTIVITY_TIMEOUT: "${ACTIVITY_TIMEOUT:-90m}"
       USAGE_STALE_AFTER: "${USAGE_STALE_AFTER:-5m}"
       DATA_PATH: /data/brainiac.db
     volumes:
       - brainiac-data:/data
     healthcheck:
-      test: ["CMD", "brainiac", "healthcheck", "--url", "http://127.0.0.1:8765"]
+      test: ["CMD", "brainiac", "healthcheck", "--url", "http://127.0.0.1:3011"]
       interval: 15s
       timeout: 3s
       retries: 3

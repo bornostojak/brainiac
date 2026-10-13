@@ -20,7 +20,7 @@ Implement the accepted persistent Go progress and knowledge tracker:
    MCP clients, Python self-tests and skill validation, Docker build/recreation,
    browser smoke checks; leave the validated Compose service running.
 
-Defaults: 127.0.0.1:8765, 90-minute expiry, one instance/database, HTTP without
+Defaults: 127.0.0.1:3011, 90-minute expiry, one instance/database, HTTP without
 authentication, Markdown-only knowledge. Browser UI is read-oriented. Agents
 estimate each task/subtask independently. Project progress averages top-level
 tasks. No authentication, TLS, skill bundles or automatic model execution in v1.
