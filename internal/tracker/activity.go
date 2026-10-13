@@ -37,7 +37,7 @@ func (s *Store) decorateActivity(d Doc) {
 // ReportWork atomically batches task progress, agent presence and optional usage.
 // Presence is per project/agent; one agent on several tasks is counted only once.
 func (s *Store) ReportWork(ctx context.Context, pid string, payload Doc) (Doc, error) {
-	if err := fields(payload, "agent provider model active workingOn tasks taskUpdates usage message"); err != nil {
+	if err := fields(payload, "agent provider model active workingOn tasks taskUpdates usage message inputRequest"); err != nil {
 		return nil, err
 	}
 	if err := texts(payload, "agent", map[string]int{"agent": 128, "provider": 128, "model": 128, "workingOn": 2000, "message": 8000}); err != nil {
@@ -232,6 +232,27 @@ func (s *Store) ReportWork(ctx context.Context, pid string, payload Doc) (Doc, e
 				return nil, err
 			}
 		}
+		if value, ok := payload["inputRequest"]; ok {
+			input, valid := value.(map[string]any)
+			if !valid {
+				return nil, bad("inputRequest must be an object")
+			}
+			request := clone(Doc(input))
+			if err = fields(request, "title message taskId externalKey"); err != nil {
+				return nil, err
+			}
+			request["projectId"], request["agent"], request["actor"] = pid, agent, actor
+			d, err := s.requestInputTx(ctx, tx, request)
+			if err != nil {
+				return nil, err
+			}
+			result["inputRequest"] = d
+		}
+		instructions, err := pendingInstructions(ctx, tx, agent, pid)
+		if err != nil {
+			return nil, err
+		}
+		result["instructions"] = instructions
 		var cursor int64
 		if err = tx.QueryRowContext(ctx, "SELECT coalesce(max(number),0) FROM notifications").Scan(&cursor); err != nil {
 			return nil, err

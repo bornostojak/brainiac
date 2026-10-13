@@ -78,6 +78,30 @@ stay `Unknown`; do not infer vendors or token readings from agent names.
   Normal progress PATCH endpoints remain available, but meaningful batches are
   preferred. Agent presence is not automatic model supervision.
 
+## User input and service instructions
+
+For a real user decision, include `inputRequest:{"title":"Choose output",
+"message":"Which format should be used?","taskId":"TASK","externalKey":"output-choice"}`
+in a blocker `report_work`, or use MCP `request_input` / POST
+`/api/v1/input-requests` with projectId and agent. Retain its ID. Reuse the same
+externalKey for retries of that question; use a new key for a new question.
+Every open browser view receives a popup regardless of its current project.
+Read the response with `get_input_request` or the normal `input.resolved` feed
+event at coordination points. A dismissal is not an answer or approval. Never
+invent a response; stay blocked on dependent work until actual input arrives.
+
+Check MCP `list_instructions` / GET `/api/v1/instructions?agent=AGENT&projectId=PROJECT`
+once at session start. Later work/activity reports include pending `instructions`
+automatically, so no separate polling loop is needed. They use stable keys and
+per-instruction revisions, completely separate from numbered progress cursors.
+For `reread_skill`, use `get_skill(name=...)`, the `brainiac://skills/NAME` resource,
+or GET `/api/v1/skills/NAME`; compare its contentVersion and read current guidance.
+Acknowledge the exact revision after handling it using `acknowledge_instruction`
+or POST `.../instructions/KEY/acknowledgements` with agent and revision. New
+revisions reappear; on 409 reread before acknowledging. Update installed packages
+when appropriate. Guidance remains subject to the user's task and harness rules.
+Instructions do not execute commands or wake model turns automatically.
+
 ## Global knowledge
 
 List `/api/v1/knowledge?q=TOPIC&tag=TAG` (or MCP `list_knowledge`) first. The index

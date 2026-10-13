@@ -7,11 +7,13 @@ import "strings"
 func OpenAPI() map[string]any {
 	str := func() any { return map[string]any{"type": "string"} }
 	props := map[string]any{}
-	for _, k := range strings.Fields("name description readme externalKey lifecycle activity parentId agent detail next verification actor slug title summary body sourceProjectId sourceTaskId sourceAgent projectId taskId message recipient provider model sessionId resetsAt observedAt source") {
+	for _, k := range strings.Fields("name description readme externalKey lifecycle activity parentId agent detail next verification actor slug title summary body sourceProjectId sourceTaskId sourceAgent projectId taskId message recipient provider model sessionId resetsAt observedAt source key kind response") {
 		props[k] = str()
 	}
 	props["percent"] = map[string]any{"type": "number", "minimum": 0, "maximum": 100}
 	props["workingOn"] = str()
+	props["active"] = map[string]any{"type": "boolean"}
+	props["revision"] = map[string]any{"type": "integer", "minimum": 1}
 	props["expectedRevision"] = map[string]any{"type": "integer", "minimum": 1}
 	props["tags"] = map[string]any{"type": "array", "items": str(), "maxItems": 32}
 	props["status"] = map[string]any{"type": "string", "enum": []string{"pending", "partial", "active", "done", "blocked"}}
@@ -39,6 +41,16 @@ func OpenAPI() map[string]any {
 	schema("KnowledgeCreate", "slug title summary tags body sourceProjectId sourceTaskId sourceAgent actor", "slug title body")
 	schema("KnowledgePatch", "title summary tags body sourceProjectId sourceTaskId sourceAgent actor expectedRevision", "expectedRevision")
 	schema("Usage", "provider model sessionId source observedAt tokenBudget tokensUsed tokensRemaining contextTokens contextLimit accountRemainingPercent resetsAt actor expectedRevision", "")
+	schema("InputRequest", "projectId taskId agent title message externalKey actor", "projectId agent title message")
+	schema("InputAnswer", "response actor expectedRevision", "expectedRevision")
+	schemas["InputAnswer"].(map[string]any)["properties"].(map[string]any)["status"] = map[string]any{"type": "string", "enum": []string{"resolved", "cancelled"}}
+	schemas["InputAnswer"].(map[string]any)["required"] = []string{"status", "expectedRevision"}
+	schema("InstructionCreate", "key title message kind recipient projectId active actor", "key title message")
+	schema("InstructionPatch", "title message kind recipient projectId active actor expectedRevision", "expectedRevision")
+	for _, name := range []string{"InstructionCreate", "InstructionPatch"} {
+		schemas[name].(map[string]any)["properties"].(map[string]any)["kind"] = map[string]any{"type": "string", "enum": []string{"guidance", "reread_skill", "refresh_tools"}}
+	}
+	schema("InstructionAck", "agent revision", "agent revision")
 	activityFields := "agent provider model workingOn actor expectedRevision"
 	schema("WorkReport", activityFields, "agent")
 	report := schemas["WorkReport"].(map[string]any)
@@ -54,6 +66,8 @@ func OpenAPI() map[string]any {
 	reportProps["message"] = str()
 	// MCP tool schemas are standalone, so embed the usage schema rather than a document-local reference.
 	reportProps["usage"] = schemas["Usage"]
+	schema("BatchedInputRequest", "title message taskId externalKey", "title message")
+	reportProps["inputRequest"] = schemas["BatchedInputRequest"]
 	activityProps := map[string]any{}
 	for _, key := range strings.Fields("agent provider model workingOn active tasks actor expectedRevision") {
 		activityProps[key] = reportProps[key]
@@ -88,13 +102,20 @@ func OpenAPI() map[string]any {
 				query = "since limit wait projectId taskId actor recipient kind knowledgeSlug"
 			case "/knowledge":
 				query = "q tag"
+			case "/input-requests":
+				query = "projectId agent status"
+			case "/instructions":
+				query = "agent projectId"
 			}
 			for _, k := range strings.Fields(query) {
 				param := str()
 				if k == "since" || k == "limit" || k == "wait" {
 					param = map[string]any{"type": "integer", "minimum": 0}
 				}
-				params = append(params, map[string]any{"name": k, "in": "query", "schema": param})
+				if k == "status" && path == "/input-requests" {
+					param = map[string]any{"type": "string", "enum": []string{"open", "resolved", "cancelled", "all"}}
+				}
+				params = append(params, map[string]any{"name": k, "in": "query", "schema": param, "required": path == "/instructions" && k == "agent"})
 			}
 		}
 		op["parameters"] = params
@@ -129,5 +150,15 @@ func OpenAPI() map[string]any {
 	add("/agents", "get", "Reported agent usage", "")
 	add("/agents/{agent}/usage", "get", "Fetch usage", "")
 	add("/agents/{agent}/usage", "put", "Replace usage observation", "Usage")
-	return map[string]any{"openapi": "3.1.0", "info": map[string]any{"title": "Brainiac", "version": "1.0.0", "description": "Persistent progress, collaboration, usage and Markdown knowledge. See /README.md for cursor, activity and negotiation semantics."}, "servers": []any{map[string]any{"url": "/api/v1"}}, "paths": paths, "components": map[string]any{"schemas": schemas}}
+	add("/input-requests", "get", "List unresolved input across all projects by default", "")
+	add("/input-requests", "post", "Ask for user input and alert every open browser view; externalKey deduplicates retries per project/agent", "InputRequest")
+	add("/input-requests/{requestId}", "get", "Read request and user response", "")
+	add("/input-requests/{requestId}", "patch", "Resolve with response or cancel using expectedRevision", "InputAnswer")
+	add("/instructions", "get", "Pending independent instructions for an agent, including global and matching project instructions", "")
+	add("/instructions", "post", "Publish independent agent instructions; no numbered notification is created", "InstructionCreate")
+	add("/instructions/{key}", "get", "Read instruction and current revision", "")
+	add("/instructions/{key}", "patch", "Revise or retire independent instructions using expectedRevision", "InstructionPatch")
+	add("/instructions/{key}/acknowledgements", "post", "Acknowledge the exact instruction revision after handling it", "InstructionAck")
+	add("/skills/{name}", "get", "Read current skill Markdown and package fingerprint", "")
+	return map[string]any{"openapi": "3.1.0", "info": map[string]any{"title": "Brainiac", "version": Version, "description": "Persistent progress, collaboration, usage and Markdown knowledge. See /README.md for cursor, activity and negotiation semantics."}, "servers": []any{map[string]any{"url": "/api/v1"}}, "paths": paths, "components": map[string]any{"schemas": schemas}}
 }

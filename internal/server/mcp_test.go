@@ -28,7 +28,7 @@ func exerciseMCP(t *testing.T, transport mcp.Transport) {
 		t.Fatal("tool discovery", e)
 	}
 	templates, e := session.ListResourceTemplates(ctx, nil)
-	if e != nil || len(templates.ResourceTemplates) != 3 {
+	if e != nil || len(templates.ResourceTemplates) != 4 {
 		t.Fatal("resource template discovery", e)
 	}
 	invoke := func(name string, args tracker.Doc) tracker.Doc {
@@ -54,6 +54,16 @@ func exerciseMCP(t *testing.T, transport mcp.Transport) {
 	pid := project["id"].(string)
 	task := invoke("create_task", tracker.Doc{"projectId": pid, "name": "Build", "agent": "builder"})["result"].(map[string]any)
 	tid := task["id"].(string)
+	invoke("publish_instruction", tracker.Doc{"key": "mcp-guidance", "title": "Read guidance", "message": "Use current service docs", "recipient": "builder"})
+	instructions := invoke("list_instructions", tracker.Doc{"agent": "builder", "projectId": pid})["result"].(map[string]any)
+	if len(instructions["instructions"].([]any)) != 1 {
+		t.Fatal("instruction discovery")
+	}
+	invoke("acknowledge_instruction", tracker.Doc{"key": "mcp-guidance", "agent": "builder", "revision": 1})
+	invoke("get_skill", tracker.Doc{"name": "progress-tracker"})
+	question := invoke("request_input", tracker.Doc{"projectId": pid, "taskId": tid, "agent": "builder", "title": "Choose format", "message": "What format?"})["result"].(map[string]any)
+	invoke("answer_input_request", tracker.Doc{"requestId": question["id"], "status": "resolved", "response": "Markdown", "expectedRevision": 1})
+	invoke("get_input_request", tracker.Doc{"requestId": question["id"]})
 	invoke("update_task", tracker.Doc{"projectId": pid, "taskId": tid, "percent": 40, "readme": "MCP handoff", "expectedRevision": 1})
 	invoke("report_agent_usage", tracker.Doc{"agent": "builder", "tokensRemaining": 5000, "contextTokens": 2000, "contextLimit": 10000})
 	invoke("report_work", tracker.Doc{"projectId": pid, "agent": "builder", "provider": "OpenAI", "workingOn": "API implementation", "taskUpdates": []any{map[string]any{"taskId": tid, "percent": 45}}, "usage": map[string]any{"tokensRemaining": 4900}})
@@ -71,6 +81,10 @@ func exerciseMCP(t *testing.T, transport mcp.Transport) {
 	resource, e = session.ReadResource(ctx, &mcp.ReadResourceParams{URI: "brainiac://knowledge/mcp-tips/README.md"})
 	if e != nil || !strings.Contains(resource.Contents[0].Text, "Reusable") {
 		t.Fatal("knowledge resource", e)
+	}
+	resource, e = session.ReadResource(ctx, &mcp.ReadResourceParams{URI: "brainiac://skills/progress-tracker"})
+	if e != nil || !strings.Contains(resource.Contents[0].Text, "# Progress Tracker") {
+		t.Fatal("skill resource", e)
 	}
 }
 func TestMCPHTTP(t *testing.T) {

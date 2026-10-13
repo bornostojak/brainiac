@@ -71,6 +71,13 @@ the board repeatedly without a coordination need. Reuse saved IDs/URLs. With
 Brainiac, prefer one `report_work` call combining task updates and agent activity;
 the original Python fallback uses its existing PATCH API at the same cadence.
 
+With Brainiac, include a genuine user question as `inputRequest` in a blocker
+report, or use `request_input`; popups reach all open projects. Dismissal is not
+approval. Check `list_instructions` once at session start, then handle pending
+`instructions` returned by normal work/activity reports. Re-read changed skills
+with `get_skill` and acknowledge the exact instruction revision after handling
+it. These instructions have no numbered-feed cursor and need no polling loop.
+
 Use the selected port from startup JSON. Local writes require loopback curl:
 
 ```bash

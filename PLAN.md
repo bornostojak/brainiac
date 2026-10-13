@@ -43,3 +43,9 @@ show explicit, per-project agent reports with a one-hour expiry. Support shared
 tasks and work descriptions. Batch task changes, activity, usage and handoffs
 atomically; guide MCP/skills to report meaningful events or quiet 10–15 minute
 check-ins rather than individual commands/edits. Refresh relevant installations.
+
+Cross-project attention: persistent user input requests, globally delivered
+browser popups with optional desktop permission, safe inline answers and revision
+conflicts. Independent service instructions use stable keys, per-agent revision
+receipts and embedded-skill fingerprints; return pending guidance with normal
+reports to avoid extra polling. Expose equivalent REST/MCP tools and skill resources.

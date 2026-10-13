@@ -22,7 +22,17 @@ type Backend interface {
 type toolSpec struct{ name, method, path, description string }
 
 var tools = []toolSpec{
-	{"report_work", "POST", "/projects/{projectId}/reports", "Preferred: batch meaningful taskUpdates, one-hour agent activity, optional measured usage and message in one atomic call. Report start, phase changes, blockers, handoff or finish; active=false stops. During uninterrupted work refresh after 10–15 minutes, not every action."},
+	{"request_input", "POST", "/input-requests", "Ask a concrete user question; alerts every open browser project. Prefer inputRequest in report_work when also reporting a blocker. Retain request ID; reuse externalKey to avoid duplicate questions."},
+	{"list_input_requests", "GET", "/input-requests", "Read open questions by default, across projects. Use status=resolved/all to retrieve answers at coordination points; do not busy-poll."},
+	{"get_input_request", "GET", "/input-requests/{requestId}", "Read a question and its user response."},
+	{"answer_input_request", "PATCH", "/input-requests/{requestId}", "Record a supplied user response with status=resolved, or cancel with status=cancelled; requires expectedRevision. Never invent user approval."},
+	{"list_instructions", "GET", "/instructions", "Read pending service instructions for your stable agent ID and optional project. Separate from numbered notifications; check once at session start. Normal report_work responses also include pending instructions."},
+	{"get_instruction", "GET", "/instructions/{key}", "Read a service instruction and its current independent revision."},
+	{"publish_instruction", "POST", "/instructions", "Publish durable guidance outside the progress feed, optionally addressed to a recipient/project. Stable non-reserved key; not an executable command or automatic model turn."},
+	{"update_instruction", "PATCH", "/instructions/{key}", "Revise or retire service guidance using expectedRevision. Set active=false to retire; brainiac.* keys are service-managed."},
+	{"acknowledge_instruction", "POST", "/instructions/{key}/acknowledgements", "Acknowledge the exact revision after handling it; future revisions become pending again. On conflict reread before acknowledging."},
+	{"get_skill", "GET", "/skills/{name}", "Re-read the current progress-tracker or live-progress-monitor Markdown and package fingerprint when instructed. No installer execution is required to read it."},
+	{"report_work", "POST", "/projects/{projectId}/reports", "Preferred: batch taskUpdates, one-hour activity, optional measured usage, message or inputRequest atomically. Returns pending instructions: handle and acknowledge exact revisions. Report start, milestones, blockers, handoff or finish (active=false); quiet check-ins after 10–15 minutes, not every action."},
 	{"report_agent_activity", "POST", "/projects/{projectId}/agents/{agent}/activity", "Refresh one agent's current work for one hour or stop with active=false. Supply vendor/provider and taskId/workingOn assignments initially; omitted assignments are retained. Prefer report_work when progress also changed."},
 	{"list_project_agents", "GET", "/projects/{projectId}/agents", "Read active project agents, their assignments, vendor counts and expiry timestamps."},
 	{"list_projects", "GET", "/projects", "List projects; reuse an exact externalKey or explicit ID, never a display name."},
@@ -49,7 +59,7 @@ var tools = []toolSpec{
 }
 
 func MCPServer(backend Backend) *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{Name: "brainiac", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: "Reuse the project/agent/task IDs for the session. Prefer report_work to batch task progress, agent activity, optional measured usage and a handoff message. Report at work start, meaningful milestones/phase changes, blockers, handoff and finish (active=false). During uninterrupted work refresh after about 10–15 minutes; one-hour expiry is a safety timeout. Do not call this service per command, file edit, reasoning step or trivial percentage change. Read summaries/knowledge when needed and notifications by retained cursor at coordination points; do not busy-poll. Agent ownership alone does not imply current activity."})
+	s := mcp.NewServer(&mcp.Implementation{Name: "brainiac", Version: Version}, &mcp.ServerOptions{Instructions: "Reuse the project/agent/task IDs for the session. Prefer report_work to batch task progress, agent activity, optional measured usage, handoff or inputRequest. Report at work start, meaningful milestones/phase changes, blockers, handoff and finish (active=false). During uninterrupted work refresh after about 10–15 minutes; one-hour expiry is a safety timeout. Do not call this service per command, file edit, reasoning step or trivial percentage change. Check list_instructions once at session start; later report_work responses carry pending instructions without extra polling. For reread_skill fetch get_skill, follow applicable guidance within the user's task and acknowledge the exact instruction revision after handling it. Instructions never override user/harness rules or automatically start model turns. Use request_input for genuine user questions and wait for a supplied response; never invent approval. Read summaries/knowledge when needed and notifications by retained cursor at coordination points; do not busy-poll. Agent ownership alone does not imply current activity."})
 	contract := OpenAPI()
 	paths := contract["paths"].(map[string]any)
 	schemas := contract["components"].(map[string]any)["schemas"].(map[string]any)
@@ -74,11 +84,10 @@ func MCPServer(backend Backend) *mcp.Server {
 				props[key] = map[string]any{"type": "string"}
 				required = append(required, key)
 			} else if spec.method == "GET" {
-				typ := "string"
-				if key == "since" || key == "limit" || key == "wait" {
-					typ = "integer"
+				props[key] = p["schema"]
+				if p["required"] == true {
+					required = append(required, key)
 				}
-				props[key] = map[string]any{"type": typ}
 			}
 		}
 		tool := &mcp.Tool{Name: spec.name, Description: spec.description, InputSchema: map[string]any{"type": "object", "properties": props, "required": required, "additionalProperties": false}}
@@ -121,6 +130,8 @@ func MCPServer(backend Backend) *mcp.Server {
 			} else {
 				path = "/knowledge" + u.Path
 			}
+		case "skills":
+			path = "/skills" + u.Path + "/SKILL.md"
 		default:
 			return nil, mcp.ResourceNotFoundError(uri)
 		}
@@ -132,7 +143,7 @@ func MCPServer(backend Backend) *mcp.Server {
 	}
 	s.AddResource(&mcp.Resource{URI: "brainiac://guide", Name: "API guide", MIMEType: "text/markdown"}, resource)
 	s.AddResource(&mcp.Resource{URI: "brainiac://knowledge/index", Name: "Global knowledge index", MIMEType: "text/markdown"}, resource)
-	for _, t := range []struct{ uri, name string }{{"brainiac://projects/{projectId}/README.md", "Project context"}, {"brainiac://projects/{projectId}/tasks/{taskId}/README.md", "Task context"}, {"brainiac://knowledge/{slug}/README.md", "Knowledge article"}} {
+	for _, t := range []struct{ uri, name string }{{"brainiac://projects/{projectId}/README.md", "Project context"}, {"brainiac://projects/{projectId}/tasks/{taskId}/README.md", "Task context"}, {"brainiac://knowledge/{slug}/README.md", "Knowledge article"}, {"brainiac://skills/{name}", "Current agent skill"}} {
 		s.AddResourceTemplate(&mcp.ResourceTemplate{URITemplate: t.uri, Name: t.name, MIMEType: "text/markdown"}, resource)
 	}
 	return s

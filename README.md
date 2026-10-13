@@ -129,6 +129,49 @@ Harness references: [OpenCode skills](https://dev.opencode.ai/v2/docs/skills/),
 
 ## Agent workflow
 
+### Input popups and independent service instructions
+
+Agents can request a user decision with MCP `request_input` or POST
+`/api/v1/input-requests` (projectId, agent, title, message, optional taskId).
+Alternatively include `inputRequest` in a blocker `report_work` batch to report
+the blocker and ask the question in one call. An optional `externalKey` deduplicates
+retries per project/agent, including already answered questions; use a new key for
+a new decision.
+
+Every open Brainiac browser page receives a compact popup, regardless of the
+project being viewed, including task, knowledge and Markdown views. Open requests
+survive reloads and reconnects; polling handles disconnected streams. Dismiss
+hides a popup in that tab, and the header's input count reopens it. Sending a
+response resolves the request in all tabs and emits `input.resolved` to its agent.
+Responses require `expectedRevision`; simultaneous answers cannot overwrite one
+another. Fetch the request or list with `status=resolved/all` to read answers.
+Agents must not treat a dismissal as an answer or invent approval.
+
+The **Desktop alerts** button optionally enables operating-system browser
+notifications. It requests permission only on a user click. Browser support and
+a secure context are required (loopback HTTP works); in-page popups always work
+without notification permission. The browser must remain open to receive alerts.
+
+MCP `list_instructions` / GET `/api/v1/instructions?agent=AGENT&projectId=PROJECT`
+returns pending service guidance separately from numbered notifications. Normal
+work/activity reports carry the same pending instructions, avoiding an additional
+polling loop. Each instruction has a stable key, its own revision and per-agent
+receipts; it never changes a progress-feed cursor or project activity.
+`publish_instruction` creates guidance with optional recipient/project routing;
+`update_instruction` revises it with `expectedRevision` or retires it with
+`active:false`. Routing labels provide no authentication or privacy.
+
+At startup Brainiac fingerprints its embedded skill packages. Changed content
+revises a stable `brainiac.skill.NAME` instruction; unchanged restarts do not
+repeat an acknowledged notice. Use MCP `get_skill`, `brainiac://skills/NAME`, or
+GET `/api/v1/skills/NAME` to read the current Markdown and fingerprint (raw text
+also at `/skills/NAME/SKILL.md`). Handle the applicable guidance, then use
+`acknowledge_instruction` / POST `/api/v1/instructions/KEY/acknowledgements` with
+agent and exact revision. New revisions become pending again; stale acknowledgements
+return 409. The service-managed `brainiac.*` keys cannot be edited through the API.
+Instructions remain subject to user/harness rules and do not automatically
+execute tools or start model turns.
+
 ### Active agents and efficient reporting
 
 Project pages show a vendor table above tasks, with unique active-agent counts,
@@ -264,13 +307,15 @@ For command-based clients, build the binary and configure:
 The stdio process forwards to the existing service; it never opens another
 database. Both transports expose project/task tools, summary, messages,
 notifications, knowledge/revisions and usage. Read the tool descriptions for
-input fields. Results use a `result` envelope. Resources include:
+input fields. Input requests, independent instructions/receipts and current
+skill retrieval are also available. Results use a `result` envelope. Resources include:
 
 - `brainiac://guide`
 - `brainiac://knowledge/index`
 - `brainiac://projects/{projectId}/README.md`
 - `brainiac://projects/{projectId}/tasks/{taskId}/README.md`
 - `brainiac://knowledge/{slug}/README.md`
+- `brainiac://skills/{name}`
 
 ## Validation
 

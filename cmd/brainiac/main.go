@@ -96,7 +96,9 @@ func run() error {
 	}
 	app.EnableUI()
 	app.EnableMCP()
-	app.EnableDistribution()
+	if err = app.EnableDistribution(); err != nil {
+		return err
+	}
 	network := "tcp"
 	if net.ParseIP(ip).To4() != nil {
 		network = "tcp4"

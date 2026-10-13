@@ -80,6 +80,41 @@ async function api(method, path, payload) {
     }
     await page.waitForFunction(() => [...document.querySelectorAll('.vendor-table tbody tr')].some(row => row.children[0].textContent === 'OpenAI' && row.children[1].textContent === '0'));
     assert.equal(await page.locator('.item').first().locator('.activity-ball').count(), 0);
+    const other = await api('POST', '/projects', { name: 'Another project needing input' });
+    const otherPage = await browser.newPage();
+    await otherPage.goto(base + '/projects/' + other.id);
+    await otherPage.waitForFunction(() => document.querySelector('#connection').textContent.includes('Live'));
+    const request = await api('POST', '/input-requests', {
+      projectId: other.id, agent: 'browser-questioner', title: 'Choose output',
+      message: 'Which format should we use? <img src=x onerror=alert(1)>', externalKey: 'output-choice',
+    });
+    const popup = page.locator(`.input-popup[data-request-id="${request.id}"]`);
+    await popup.waitFor();
+    await otherPage.locator('.input-popup').waitFor();
+    assert.ok((await popup.innerText()).includes(other.name));
+    assert.equal(await popup.locator('img').count(), 0);
+    assert.ok(page.url().endsWith('/projects/' + project.id));
+    await popup.getByRole('textbox').fill('Use Markdown');
+    const second = await api('POST', '/input-requests', {
+      projectId: project.id, agent: 'browser-questioner', title: 'Another choice', message: 'Confirm this option',
+    });
+    await page.waitForFunction(() => document.querySelectorAll('.input-popup').length === 2);
+    assert.equal(await popup.getByRole('textbox').inputValue(), 'Use Markdown');
+    await page.locator(`.input-popup[data-request-id="${second.id}"]`).getByRole('button', { name: 'Dismiss' }).click();
+    assert.equal(await page.locator('.input-popup').count(), 1);
+    await page.getByRole('button', { name: '2 input requests' }).click();
+    assert.equal(await page.locator('.input-popup').count(), 2);
+    await api('PATCH', '/input-requests/' + second.id, { status: 'cancelled', expectedRevision: 1 });
+    await page.waitForFunction(() => document.querySelectorAll('.input-popup').length === 1);
+    await page.reload();
+    await popup.waitFor();
+    await popup.getByRole('textbox').fill('Use Markdown');
+    await popup.getByRole('button', { name: 'Send response' }).click();
+    await page.waitForFunction(() => document.querySelectorAll('.input-popup').length === 0);
+    await otherPage.waitForFunction(() => document.querySelectorAll('.input-popup').length === 0);
+    const answered = await api('GET', '/input-requests/' + request.id);
+    assert.equal(answered.response, 'Use Markdown');
+    await otherPage.close();
     await page.setViewportSize({ width: 390, height: 844 });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     await page.goto(base + '/projects/' + project.id + '/tasks/' + child.id);
@@ -100,7 +135,25 @@ async function api(method, path, payload) {
     await page.waitForSelector('.item');
     await page.getByLabel('Activity filter').selectOption('inactive');
     assert.equal(await page.locator('.item').count(), 0);
+    const pollingPage = await browser.newPage();
+    await pollingPage.route('**/events**', route => route.abort());
+    await pollingPage.goto(base + '/projects/' + project.id);
+    await pollingPage.waitForSelector('#overview h1');
+    const pollingRequest = await api('POST', '/input-requests', {
+      projectId: other.id, agent: 'browser-questioner', title: 'Polling input', message: 'Input with SSE unavailable',
+    });
+    await pollingPage.locator(`.input-popup[data-request-id="${pollingRequest.id}"]`).waitFor({ timeout: 22000 });
+    await pollingPage.close();
+    await api('PATCH', '/input-requests/' + pollingRequest.id, { status: 'cancelled', expectedRevision: 1 });
+    await page.waitForFunction(() => document.querySelectorAll('.input-popup').length === 0);
+    const articleRequest = await api('POST', '/input-requests', {
+      projectId: other.id, agent: 'browser-questioner', title: 'README input', message: 'Input from another project',
+    });
+    await page.goto(base + '/README.md');
+    await page.locator(`.input-popup[data-request-id="${articleRequest.id}"]`).waitFor();
+    await api('PATCH', '/input-requests/' + articleRequest.id, { status: 'cancelled', expectedRevision: 1 });
+    await page.waitForFunction(() => document.querySelectorAll('.input-popup').length === 0);
     assert.deepEqual(errors, []);
-    console.log('Browser acceptance passed: vendor counts, shared-task hover, activity stop, subtasks, progress, usage, SSE, expansion, filters, mobile layout and knowledge.');
+    console.log('Browser acceptance passed: cross-project popups, polling fallback, safe request text, drafts, dismissal/reload, answers across tabs and README views; vendor counts, task hover, subtasks, usage, SSE, filters, mobile and knowledge.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -38,6 +38,7 @@ func New(s *tracker.Store) *App {
 	a.mux.HandleFunc("GET /projects/{projectId}/tasks/{taskId}/README.md", a.readme)
 	a.mux.HandleFunc("GET /knowledge/README.md", a.readme)
 	a.mux.HandleFunc("GET /knowledge/{slug}/README.md", a.readme)
+	a.mux.HandleFunc("GET /skills/{name}/SKILL.md", a.readme)
 	a.mux.HandleFunc("GET /api/v1/openapi.json", func(w http.ResponseWriter, r *http.Request) { reply(w, 200, OpenAPI()) })
 	return a
 }
@@ -89,7 +90,7 @@ func (a *App) health(w http.ResponseWriter, r *http.Request) {
 		reply(w, 503, tracker.Doc{"service": "brainiac", "status": "unavailable"})
 		return
 	}
-	reply(w, 200, tracker.Doc{"service": "brainiac", "status": "ok", "apiVersion": "v1", "version": "1.0.0", "mcp": "/mcp", "capabilities": []string{"projects", "nested-tasks", "notifications", "knowledge", "usage"}})
+	reply(w, 200, tracker.Doc{"service": "brainiac", "status": "ok", "apiVersion": "v1", "version": Version, "mcp": "/mcp", "capabilities": []string{"projects", "nested-tasks", "notifications", "knowledge", "usage", "agent-activity", "input-requests", "instructions"}})
 }
 func (a *App) api(w http.ResponseWriter, r *http.Request) {
 	payload := tracker.Doc{}
@@ -164,6 +165,58 @@ func (a *App) Dispatch(ctx context.Context, method, path string, q url.Values, p
 	p := parts[2:]
 	s := a.Store
 	switch p[0] {
+	case "input-requests":
+		if len(p) == 1 {
+			if method == "POST" {
+				return s.RequestInput(ctx, payload)
+			}
+			if method == "GET" {
+				status := q.Get("status")
+				if status == "" {
+					status = "open"
+				}
+				if status == "all" {
+					status = ""
+				} else if status != "open" && status != "resolved" && status != "cancelled" {
+					return nil, &tracker.Error{Status: 400, Message: "status must be open, resolved, cancelled or all"}
+				}
+				items, err := s.List(ctx, "input")
+				return tracker.Doc{"requests": tracker.Filter(items, map[string]string{"status": status, "projectId": q.Get("projectId"), "agent": q.Get("agent")})}, err
+			}
+		}
+		if len(p) == 2 {
+			if method == "GET" {
+				return s.Get(ctx, "input", p[1])
+			}
+			if method == "PATCH" {
+				return s.AnswerInput(ctx, p[1], payload)
+			}
+		}
+	case "instructions":
+		if len(p) == 1 {
+			if method == "GET" {
+				items, err := s.Instructions(ctx, q.Get("agent"), q.Get("projectId"))
+				return tracker.Doc{"instructions": items}, err
+			}
+			if method == "POST" {
+				return s.SaveInstruction(ctx, "", payload)
+			}
+		}
+		if len(p) == 2 {
+			if method == "GET" {
+				return s.Get(ctx, "instruction", p[1])
+			}
+			if method == "PATCH" {
+				return s.SaveInstruction(ctx, p[1], payload)
+			}
+		}
+		if len(p) == 3 && p[2] == "acknowledgements" && method == "POST" {
+			return s.AcknowledgeInstruction(ctx, p[1], payload)
+		}
+	case "skills":
+		if len(p) == 2 && method == "GET" {
+			return skillDocument(p[1])
+		}
 	case "projects":
 		if len(p) == 1 {
 			if method == "POST" {
@@ -341,9 +394,15 @@ func (a *App) Dispatch(ctx context.Context, method, path string, q url.Values, p
 func knownPath(p []string) bool {
 	if len(p) == 1 {
 		switch p[0] {
-		case "projects", "knowledge", "agents", "notifications", "summary":
+		case "projects", "knowledge", "agents", "notifications", "summary", "input-requests", "instructions":
 			return true
 		}
+	}
+	if p[0] == "input-requests" || p[0] == "skills" {
+		return len(p) == 2
+	}
+	if p[0] == "instructions" {
+		return len(p) == 2 || len(p) == 3 && p[2] == "acknowledgements"
 	}
 	if p[0] == "projects" {
 		return len(p) == 2 || len(p) == 3 && (p[2] == "tasks" || p[2] == "summary" || p[2] == "heartbeat" || p[2] == "agents" || p[2] == "reports") || len(p) == 4 && p[2] == "tasks" || len(p) == 5 && p[2] == "agents" && p[4] == "activity"
@@ -483,10 +542,14 @@ func (a *App) readme(w http.ResponseWriter, r *http.Request) {
 	readmeTemplate.Execute(w, template.HTML(rendered.String()))
 }
 
-var readmeTemplate = template.Must(template.New("readme").Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Brainiac · README</title><link rel="stylesheet" href="/assets/style.css"></head><body><header><a href="/">brainiac / progress</a><nav><a href="/knowledge">Knowledge</a><a href="/README.md">API guide</a></nav></header><article class="panel markdown">{{.}}</article></body></html>`))
+var readmeTemplate = template.Must(template.New("readme").Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Brainiac · README</title><link rel="stylesheet" href="/assets/style.css"><script src="/assets/alerts.js" defer></script></head><body><header><a href="/">brainiac / progress</a><nav><a href="/knowledge">Knowledge</a><a href="/README.md">API guide</a></nav></header><article class="panel markdown">{{.}}</article></body></html>`))
 
 func (a *App) Markdown(ctx context.Context, path string) (string, error) {
 	p := strings.Split(strings.Trim(path, "/"), "/")
+	if len(p) == 3 && p[0] == "skills" && p[2] == "SKILL.md" {
+		d, err := skillDocument(p[1])
+		return tracker.Text(d, "markdown"), err
+	}
 	if path == "/README.md" || path == "/api/README.md" {
 		return apiGuide, nil
 	}
@@ -582,6 +645,36 @@ const apiGuide = `# Brainiac API
 
 Base path: /api/v1. All mutation requests use Content-Type: application/json.
 Read /api/v1/openapi.json for the machine-readable contract. MCP: /mcp.
+
+## User input and service instructions
+
+POST /api/v1/input-requests with projectId, agent, title, message and optional
+taskId/externalKey, or include inputRequest in a blocker work report. A stable
+externalKey deduplicates retries per project/agent. Every open browser project,
+task, knowledge and Markdown view shows unresolved questions; no desktop
+permission is required for in-page popups. Desktop alerts are an optional browser
+permission. A response PATCH uses status=resolved, response and expectedRevision;
+cancel with status=cancelled. Dismissal is not a response or approval. Read
+GET /api/v1/input-requests/{requestId}, list status=resolved/all, or consume
+input.resolved in the normal numbered feed. Popups resume after reload/reconnect.
+
+GET /api/v1/instructions?agent=AGENT&projectId=PROJECT returns pending service
+guidance outside the numbered feed. Check once at session start; ordinary
+work/activity reports include instructions, so avoid a separate polling loop.
+Instructions have stable keys and independent revisions with per-agent receipts.
+POST /instructions publishes key/title/message/kind and optional recipient,
+projectId; PATCH /instructions/{key} requires expectedRevision, and active=false
+retires it. These operations do not refresh project activity or create numbered
+updates. Routing labels offer no privacy or authentication.
+
+Brainiac fingerprints skill packages at startup and revises brainiac.skill.NAME
+only when content changes. Use MCP get_skill(name), resource brainiac://skills/NAME,
+GET /api/v1/skills/NAME or /skills/NAME/SKILL.md to re-read current guidance.
+After handling an instruction, POST /api/v1/instructions/KEY/acknowledgements with
+agent and exact revision (MCP acknowledge_instruction). On 409 reread before
+acknowledging; new revisions become pending again. brainiac.* keys are reserved.
+Instructions are subject to user/harness rules and never start model turns or
+execute commands automatically.
 
 ## Projects and tasks
 
