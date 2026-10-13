@@ -11,6 +11,7 @@ services:
       LISTEN_IP: 0.0.0.0
       LISTEN_PORT: "8765"
       ACTIVITY_TIMEOUT: "${ACTIVITY_TIMEOUT:-90m}"
+      USAGE_STALE_AFTER: "${USAGE_STALE_AFTER:-5m}"
       DATA_PATH: /data/brainiac.db
     volumes:
       - brainiac-data:/data

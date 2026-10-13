@@ -1,5 +1,6 @@
 .git
 .env
+.cache
 data
 bin
 __pycache__
