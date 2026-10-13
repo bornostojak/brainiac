@@ -85,6 +85,10 @@ class SkillChecks(unittest.TestCase):
             self.assertEqual(discover.discover(args)['projectId'], 'stable-project')
             self.assertEqual(discover.discover(args)['projectId'], 'stable-project')
             self.assertEqual(sum(payload is not None for _, payload in requests), 1)
+            args.project_id = '../knowledge/example'
+            with self.assertRaises(ValueError):
+                discover.discover(args)
+            args.project_id = None
             discover.request = lambda *a, **kw: (_ for _ in ()).throw(OSError('offline'))
             result = discover.discover(args)
             self.assertEqual(result['backend'], 'legacy')

@@ -9,6 +9,7 @@ import sys
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
+from uuid import UUID
 
 
 def request(base, path, payload=None):
@@ -27,13 +28,15 @@ def discover(args):
     parsed = urlsplit(base)
     if parsed.scheme not in ('http', 'https') or not parsed.netloc or parsed.username or parsed.path or parsed.query or parsed.fragment:
         raise ValueError('PROGRESS_TRACKER_URL must be an HTTP(S) service origin')
+    project_id = args.project_id or os.environ.get('PROGRESS_PROJECT_ID')
+    if project_id:
+        project_id = str(UUID(project_id))
     try:
         health = request(base, '/healthz')
         if health.get('service') != 'brainiac' or health.get('apiVersion') != 'v1' or health.get('status') != 'ok':
             return {'backend': 'legacy', 'reason': 'Service is not compatible Brainiac API v1', 'checkedUrl': base}
     except (OSError, ValueError, URLError) as error:
         return {'backend': 'legacy', 'reason': str(error), 'checkedUrl': base}
-    project_id = args.project_id or os.environ.get('PROGRESS_PROJECT_ID')
     if project_id:
         project = request(base, '/api/v1/projects/' + project_id)
     else:
