@@ -1,6 +1,16 @@
 .git
 .env
+.env.*
+!.env.example
+*compose.override.yml
+*compose.override.yaml
+*.local.yml
+*.local.yaml
+secrets
 .cache
 data
 bin
 __pycache__
+*.db
+*.db-*
+*.sqlite*

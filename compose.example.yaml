@@ -1,0 +1,26 @@
+# Generic Linux deployment; put site-specific settings in ignored .env files.
+# Docker Desktop requires host networking enabled.
+services:
+  brainiac:
+    build:
+      context: .
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      LISTEN_IP: "${LISTEN_IP:-127.0.0.1}"
+      LISTEN_PORT: "${LISTEN_PORT:-3011}"
+      IP_ALLOWLIST: "${IP_ALLOWLIST-}"
+      ACTIVITY_TIMEOUT: "${ACTIVITY_TIMEOUT:-90m}"
+      USAGE_STALE_AFTER: "${USAGE_STALE_AFTER:-5m}"
+      DATA_PATH: /data/brainiac.db
+    volumes:
+      - brainiac-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "brainiac healthcheck --url http://127.0.0.1:$$LISTEN_PORT"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    stop_grace_period: 10s
+volumes:
+  brainiac-data:

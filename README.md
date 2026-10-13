@@ -18,6 +18,13 @@ Compose retains SQLite in the `brainiac-data` volume and restarts the service
 unless stopped. `docker compose down` preserves that volume; adding `--volumes`
 removes the data. Run only one service instance against a database.
 
+[compose.example.yaml](compose.example.yaml) is a complete generic Docker
+configuration with loopback binding and an empty allowlist. Run it with
+`docker compose --env-file .env.example -f compose.example.yaml up -d --build`,
+or copy `.env.example` to the ignored `.env` and customize it for your deployment.
+Local environment files, Compose overrides and databases stay out of Git and
+Docker build contexts.
+
 | Variable | Default | Meaning |
 |---|---|---|
 | `LISTEN_IP` | `127.0.0.1` | Listener IP in native and Compose mode |
@@ -51,6 +58,8 @@ IP_ALLOWLIST=192.0.2.0/24,2001:db8::/32
 ```
 
 Individual addresses and CIDRs can be mixed; IPv4 and IPv6 are supported.
+These are documentation-only networks; replace them with your intended client
+networks in the ignored `.env` file.
 An empty allowlist is valid and denies access outside the destination exemption;
 invalid addresses or CIDRs fail startup. The exemption is exactly `127.0.0.0/24`,
 not all of `127.0.0.0/8` or `::1`. IPv4-mapped IPv6 addresses are normalized.

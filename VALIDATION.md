@@ -86,3 +86,17 @@ Existing harness settings were preserved.
   match installed packages. Server guidance favors one batched report
   per meaningful milestone and quiet 10–15 minute check-ins, avoiding calls for
   each command, edit or reasoning step.
+
+## Publication audit
+
+Reviewed every reachable commit and tracked configuration before publication.
+Deployment-specific network ranges were removed from their original commits;
+CIDR examples and tests use documentation-only networks. No credentials,
+personal filesystem paths, deployed entity identifiers or local databases were
+found in tracked history. Local `.env` files were never tracked. Author and
+committer attribution is retained as explicitly requested.
+
+The generic `compose.example.yaml` validates using `.env.example`: loopback
+listener, port 3011, empty allowlist, persistent volume and healthcheck. Git and
+Docker ignores protect local environment files, overrides, saved skill origins
+and database artifacts. The active private deployment settings remain local.
