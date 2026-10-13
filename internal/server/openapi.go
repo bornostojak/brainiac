@@ -11,6 +11,7 @@ func OpenAPI() map[string]any {
 		props[k] = str()
 	}
 	props["percent"] = map[string]any{"type": "number", "minimum": 0, "maximum": 100}
+	props["workingOn"] = str()
 	props["expectedRevision"] = map[string]any{"type": "integer", "minimum": 1}
 	props["tags"] = map[string]any{"type": "array", "items": str(), "maxItems": 32}
 	props["status"] = map[string]any{"type": "string", "enum": []string{"pending", "partial", "active", "done", "blocked"}}
@@ -38,6 +39,26 @@ func OpenAPI() map[string]any {
 	schema("KnowledgeCreate", "slug title summary tags body sourceProjectId sourceTaskId sourceAgent actor", "slug title body")
 	schema("KnowledgePatch", "title summary tags body sourceProjectId sourceTaskId sourceAgent actor expectedRevision", "expectedRevision")
 	schema("Usage", "provider model sessionId source observedAt tokenBudget tokensUsed tokensRemaining contextTokens contextLimit accountRemainingPercent resetsAt actor expectedRevision", "")
+	activityFields := "agent provider model workingOn actor expectedRevision"
+	schema("WorkReport", activityFields, "agent")
+	report := schemas["WorkReport"].(map[string]any)
+	reportProps := report["properties"].(map[string]any)
+	reportProps["active"] = map[string]any{"type": "boolean", "default": true}
+	assignment := map[string]any{"type": "object", "properties": map[string]any{"taskId": str(), "workingOn": str()}, "required": []string{"taskId"}, "additionalProperties": false}
+	reportProps["tasks"] = map[string]any{"type": "array", "items": assignment, "maxItems": 100}
+	patchProperties := map[string]any{"taskId": str()}
+	for key, value := range schemas["TaskPatch"].(map[string]any)["properties"].(map[string]any) {
+		patchProperties[key] = value
+	}
+	reportProps["taskUpdates"] = map[string]any{"type": "array", "maxItems": 100, "items": map[string]any{"type": "object", "properties": patchProperties, "required": []string{"taskId"}, "additionalProperties": false}}
+	reportProps["message"] = str()
+	// MCP tool schemas are standalone, so embed the usage schema rather than a document-local reference.
+	reportProps["usage"] = schemas["Usage"]
+	activityProps := map[string]any{}
+	for _, key := range strings.Fields("agent provider model workingOn active tasks actor expectedRevision") {
+		activityProps[key] = reportProps[key]
+	}
+	schemas["ActivityReport"] = map[string]any{"type": "object", "properties": activityProps, "additionalProperties": false}
 	paths := map[string]any{}
 	add := func(path, method, summary, request string) {
 		ops, ok := paths[path].(map[string]any)
@@ -53,8 +74,27 @@ func OpenAPI() map[string]any {
 			}
 		}
 		if method == "get" {
-			for _, k := range strings.Fields("projectId taskId agent status lifecycle activity externalKey q tag actor recipient kind knowledgeSlug since limit wait") {
-				params = append(params, map[string]any{"name": k, "in": "query", "schema": str()})
+			query := ""
+			switch path {
+			case "/projects":
+				query = "externalKey lifecycle activity q agent status"
+			case "/projects/{projectId}/tasks":
+				query = "agent status parentId q"
+			case "/summary":
+				query = "projectId agent status"
+			case "/projects/{projectId}/summary":
+				query = "agent status"
+			case "/notifications", "/notifications/since/{number}":
+				query = "since limit wait projectId taskId actor recipient kind knowledgeSlug"
+			case "/knowledge":
+				query = "q tag"
+			}
+			for _, k := range strings.Fields(query) {
+				param := str()
+				if k == "since" || k == "limit" || k == "wait" {
+					param = map[string]any{"type": "integer", "minimum": 0}
+				}
+				params = append(params, map[string]any{"name": k, "in": "query", "schema": param})
 			}
 		}
 		op["parameters"] = params
@@ -68,6 +108,9 @@ func OpenAPI() map[string]any {
 	add("/projects/{projectId}", "get", "Read project", "")
 	add("/projects/{projectId}", "patch", "Update project; readme replacement requires expectedRevision", "ProjectPatch")
 	add("/projects/{projectId}/heartbeat", "post", "Refresh activity", "Heartbeat")
+	add("/projects/{projectId}/reports", "post", "Batch task updates, one-hour agent activity, optional usage and handoff message atomically", "WorkReport")
+	add("/projects/{projectId}/agents", "get", "Per-project agent activity and vendor counts", "")
+	add("/projects/{projectId}/agents/{agent}/activity", "post", "Report agent work or stop; omitted tasks retain previous assignments", "ActivityReport")
 	add("/projects/{projectId}/tasks", "get", "List tasks", "")
 	add("/projects/{projectId}/tasks", "post", "Create task/subtask", "TaskCreate")
 	add("/projects/{projectId}/tasks/{taskId}", "get", "Read task", "")

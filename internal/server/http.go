@@ -180,6 +180,23 @@ func (a *App) Dispatch(ctx context.Context, method, path string, q url.Values, p
 		}
 		if len(p) >= 2 {
 			pid := p[1]
+			if len(p) == 3 && p[2] == "reports" && method == "POST" {
+				return s.ReportWork(ctx, pid, payload)
+			}
+			if len(p) == 3 && p[2] == "agents" && method == "GET" {
+				return s.ProjectAgents(ctx, pid)
+			}
+			if len(p) == 5 && p[2] == "agents" && p[4] == "activity" && method == "POST" {
+				input := tracker.Doc{}
+				for key, value := range payload {
+					input[key] = value
+				}
+				if value, ok := input["agent"]; ok && value != p[3] {
+					return nil, &tracker.Error{Status: 400, Message: "agent does not match the URL"}
+				}
+				input["agent"] = p[3]
+				return s.ReportWork(ctx, pid, input)
+			}
 			if len(p) == 2 {
 				if method == "GET" {
 					return s.Get(ctx, "project", pid)
@@ -329,7 +346,7 @@ func knownPath(p []string) bool {
 		}
 	}
 	if p[0] == "projects" {
-		return len(p) == 2 || len(p) == 3 && (p[2] == "tasks" || p[2] == "summary" || p[2] == "heartbeat") || len(p) == 4 && p[2] == "tasks"
+		return len(p) == 2 || len(p) == 3 && (p[2] == "tasks" || p[2] == "summary" || p[2] == "heartbeat" || p[2] == "agents" || p[2] == "reports") || len(p) == 4 && p[2] == "tasks" || len(p) == 5 && p[2] == "agents" && p[4] == "activity"
 	}
 	if p[0] == "knowledge" {
 		return len(p) == 2 || len(p) == 3 && p[2] == "revisions" || len(p) == 4 && p[2] == "revisions"
@@ -567,6 +584,27 @@ Base path: /api/v1. All mutation requests use Content-Type: application/json.
 Read /api/v1/openapi.json for the machine-readable contract. MCP: /mcp.
 
 ## Projects and tasks
+
+Prefer one meaningful batch over per-action calls: POST
+/api/v1/projects/{projectId}/reports with agent, provider, workingOn, taskUpdates,
+optional measured usage and optional message. Example:
+
+    {"agent":"builder-project","provider":"OpenAI","workingOn":"API validation","taskUpdates":[{"taskId":"TASK","percent":40,"status":"active","detail":"Validation implemented"}]}
+
+Reports commit atomically. taskUpdates contain existing taskId plus regular PATCH
+fields; readme replacements still require expectedRevision. Explicit tasks:
+[{"taskId":"TASK","workingOn":"Specific work"}] replace assignments; omitted
+tasks retain them, adding/updating tasks mentioned in patches and removing newly
+completed ones. active:false stops activity immediately. Agent activity expires
+after exactly one hour; static ownership and task status alone do not count.
+GET /api/v1/projects/{projectId}/agents returns agents and vendor active counts.
+POST /api/v1/projects/{projectId}/agents/{agent}/activity is a quiet check-in.
+Project summaries include agentActivity/vendors and task activeAgents.
+
+Report work start, meaningful milestones/phase changes, blockers, handoff and
+finish. During uninterrupted work refresh around every 10–15 minutes. Cache IDs
+and cursors; do not report each command/edit/reasoning step or busy-poll. Batch
+progress already refreshes presence and project activity, so skip extra heartbeats.
 
 - GET/POST /api/v1/projects; GET/PATCH /api/v1/projects/{projectId}
 - POST /api/v1/projects/{projectId}/heartbeat with {"actor":"orchestrator"}

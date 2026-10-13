@@ -22,6 +22,9 @@ type Backend interface {
 type toolSpec struct{ name, method, path, description string }
 
 var tools = []toolSpec{
+	{"report_work", "POST", "/projects/{projectId}/reports", "Preferred: batch meaningful taskUpdates, one-hour agent activity, optional measured usage and message in one atomic call. Report start, phase changes, blockers, handoff or finish; active=false stops. During uninterrupted work refresh after 10–15 minutes, not every action."},
+	{"report_agent_activity", "POST", "/projects/{projectId}/agents/{agent}/activity", "Refresh one agent's current work for one hour or stop with active=false. Supply vendor/provider and taskId/workingOn assignments initially; omitted assignments are retained. Prefer report_work when progress also changed."},
+	{"list_project_agents", "GET", "/projects/{projectId}/agents", "Read active project agents, their assignments, vendor counts and expiry timestamps."},
 	{"list_projects", "GET", "/projects", "List projects; reuse an exact externalKey or explicit ID, never a display name."},
 	{"create_project", "POST", "/projects", "Create a persistent project with independent lifecycle and activity."},
 	{"get_project", "GET", "/projects/{projectId}", "Read project metadata, context and revision."},
@@ -46,7 +49,7 @@ var tools = []toolSpec{
 }
 
 func MCPServer(backend Backend) *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{Name: "brainiac", Version: "1.0.0"}, nil)
+	s := mcp.NewServer(&mcp.Implementation{Name: "brainiac", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: "Reuse the project/agent/task IDs for the session. Prefer report_work to batch task progress, agent activity, optional measured usage and a handoff message. Report at work start, meaningful milestones/phase changes, blockers, handoff and finish (active=false). During uninterrupted work refresh after about 10–15 minutes; one-hour expiry is a safety timeout. Do not call this service per command, file edit, reasoning step or trivial percentage change. Read summaries/knowledge when needed and notifications by retained cursor at coordination points; do not busy-poll. Agent ownership alone does not imply current activity."})
 	contract := OpenAPI()
 	paths := contract["paths"].(map[string]any)
 	schemas := contract["components"].(map[string]any)["schemas"].(map[string]any)

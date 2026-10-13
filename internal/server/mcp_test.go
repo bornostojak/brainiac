@@ -56,6 +56,12 @@ func exerciseMCP(t *testing.T, transport mcp.Transport) {
 	tid := task["id"].(string)
 	invoke("update_task", tracker.Doc{"projectId": pid, "taskId": tid, "percent": 40, "readme": "MCP handoff", "expectedRevision": 1})
 	invoke("report_agent_usage", tracker.Doc{"agent": "builder", "tokensRemaining": 5000, "contextTokens": 2000, "contextLimit": 10000})
+	invoke("report_work", tracker.Doc{"projectId": pid, "agent": "builder", "provider": "OpenAI", "workingOn": "API implementation", "taskUpdates": []any{map[string]any{"taskId": tid, "percent": 45}}, "usage": map[string]any{"tokensRemaining": 4900}})
+	agents := invoke("list_project_agents", tracker.Doc{"projectId": pid})["result"].(map[string]any)
+	if len(agents["agents"].([]any)) != 1 {
+		t.Fatal("project activity not reported")
+	}
+	invoke("report_agent_activity", tracker.Doc{"projectId": pid, "agent": "builder", "active": false})
 	invoke("create_knowledge", tracker.Doc{"slug": "mcp-tips", "title": "Tips", "body": "Reusable", "tags": []string{"mcp"}})
 	invoke("list_notifications", tracker.Doc{"since": 0, "limit": 2})
 	resource, e := session.ReadResource(ctx, &mcp.ReadResourceParams{URI: "brainiac://projects/" + pid + "/tasks/" + tid + "/README.md"})

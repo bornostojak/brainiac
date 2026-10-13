@@ -146,6 +146,9 @@ func (s *Store) Get(ctx context.Context, kind, id string) (Doc, error) {
 	if err == nil && kind == "agent" {
 		s.decorateUsage(d)
 	}
+	if err == nil && kind == "presence" {
+		s.decorateActivity(d)
+	}
 	return d, err
 }
 func (s *Store) List(ctx context.Context, kind string) ([]Doc, error) {
@@ -166,6 +169,9 @@ func (s *Store) List(ctx context.Context, kind string) ([]Doc, error) {
 		}
 		if kind == "agent" {
 			s.decorateUsage(d)
+		}
+		if kind == "presence" {
+			s.decorateActivity(d)
 		}
 		out = append(out, d)
 	}
@@ -394,6 +400,10 @@ func (s *Store) Task(ctx context.Context, pid, tid string) (Doc, error) {
 	return d, err
 }
 func (s *Store) SaveTask(ctx context.Context, pid, tid string, payload Doc) (Doc, error) {
+	return s.write(ctx, func(tx *sql.Tx) (Doc, error) { return s.saveTaskTx(ctx, tx, pid, tid, payload) })
+}
+
+func (s *Store) saveTaskTx(ctx context.Context, tx *sql.Tx, pid, tid string, payload Doc) (Doc, error) {
 	allowed := "name status percent agent detail next verification readme"
 	if tid == "" {
 		allowed += " parentId"
@@ -401,58 +411,56 @@ func (s *Store) SaveTask(ctx context.Context, pid, tid string, payload Doc) (Doc
 	if err := fields(payload, allowed); err != nil {
 		return nil, err
 	}
-	return s.write(ctx, func(tx *sql.Tx) (Doc, error) {
-		p, err := get(ctx, tx, "project", pid)
+	p, err := get(ctx, tx, "project", pid)
+	if err != nil {
+		return nil, err
+	}
+	create := tid == ""
+	var d Doc
+	if create {
+		tid = uuid.NewString()
+		d = Doc{"id": tid, "projectId": pid, "parentId": "", "name": "", "status": "pending", "percent": float64(0), "agent": "", "detail": "", "next": "", "verification": "", "readme": "", "revision": float64(0), "createdAt": stamp(s.Now())}
+	} else {
+		d, err = get(ctx, tx, "task", tid)
 		if err != nil {
 			return nil, err
 		}
-		create := tid == ""
-		var d Doc
-		if create {
-			tid = uuid.NewString()
-			d = Doc{"id": tid, "projectId": pid, "parentId": "", "name": "", "status": "pending", "percent": float64(0), "agent": "", "detail": "", "next": "", "verification": "", "readme": "", "revision": float64(0), "createdAt": stamp(s.Now())}
-		} else {
-			d, err = get(ctx, tx, "task", tid)
-			if err != nil {
-				return nil, err
-			}
-			if Text(d, "projectId") != pid {
-				return nil, &Error{404, "Unknown task in this project"}
-			}
-			_, md := payload["readme"]
-			if err = revision(d, payload, md); err != nil {
-				return nil, err
-			}
+		if Text(d, "projectId") != pid {
+			return nil, &Error{404, "Unknown task in this project"}
 		}
-		merge(d, payload)
-		if err = validateTask(d); err != nil {
+		_, md := payload["readme"]
+		if err = revision(d, payload, md); err != nil {
 			return nil, err
 		}
-		if parent := Text(d, "parentId"); parent != "" {
-			pd, err := get(ctx, tx, "task", parent)
-			if err != nil {
-				return nil, bad("Unknown parent task")
-			}
-			if Text(pd, "projectId") != pid {
-				return nil, bad("Parent must belong to this project")
-			}
+	}
+	merge(d, payload)
+	if err = validateTask(d); err != nil {
+		return nil, err
+	}
+	if parent := Text(d, "parentId"); parent != "" {
+		pd, err := get(ctx, tx, "task", parent)
+		if err != nil {
+			return nil, bad("Unknown parent task")
 		}
-		d["revision"] = Num(d, "revision") + 1
-		d["updatedAt"] = stamp(s.Now())
-		s.touch(p)
-		if err = put(ctx, tx, "task", tid, pid, d); err != nil {
-			return nil, err
+		if Text(pd, "projectId") != pid {
+			return nil, bad("Parent must belong to this project")
 		}
-		if err = put(ctx, tx, "project", pid, "", p); err != nil {
-			return nil, err
-		}
-		kind := "task.updated"
-		if create {
-			kind = "task.created"
-		}
-		_, err = s.event(ctx, tx, kind, Text(payload, "actor"), pid, tid, "", fmt.Sprintf("%s · %s · %g%%", Text(d, "name"), Text(d, "status"), Num(d, "percent")), "")
-		return d, err
-	})
+	}
+	d["revision"] = Num(d, "revision") + 1
+	d["updatedAt"] = stamp(s.Now())
+	s.touch(p)
+	if err = put(ctx, tx, "task", tid, pid, d); err != nil {
+		return nil, err
+	}
+	if err = put(ctx, tx, "project", pid, "", p); err != nil {
+		return nil, err
+	}
+	kind := "task.updated"
+	if create {
+		kind = "task.created"
+	}
+	_, err = s.event(ctx, tx, kind, Text(payload, "actor"), pid, tid, "", fmt.Sprintf("%s · %s · %g%%", Text(d, "name"), Text(d, "status"), Num(d, "percent")), "")
+	return d, err
 }
 
 var slugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,95}$`)
@@ -734,12 +742,16 @@ func (s *Store) Sweep(ctx context.Context) error {
 				return nil, err
 			}
 		}
-		return nil, nil
+		return nil, s.expireAgentsTx(ctx, tx)
 	})
 	return err
 }
 
 func (s *Store) SaveUsage(ctx context.Context, agent string, payload Doc) (Doc, error) {
+	return s.write(ctx, func(tx *sql.Tx) (Doc, error) { return s.saveUsageTx(ctx, tx, agent, payload) })
+}
+
+func (s *Store) saveUsageTx(ctx context.Context, tx *sql.Tx, agent string, payload Doc) (Doc, error) {
 	if agent == "" || len(agent) > 128 || strings.Contains(agent, "/") {
 		return nil, bad("agent must be nonempty, up to 128 bytes, without slashes")
 	}
@@ -771,29 +783,28 @@ func (s *Store) SaveUsage(ctx context.Context, agent string, payload Doc) (Doc, 
 			}
 		}
 	}
-	return s.write(ctx, func(tx *sql.Tx) (Doc, error) {
-		old, err := get(ctx, tx, "agent", agent)
-		if err != nil {
-			if e, ok := err.(*Error); !ok || e.Status != 404 {
-				return nil, err
-			}
-			old = Doc{"revision": float64(0)}
-		}
-		if _, ok := payload["expectedRevision"]; ok {
-			if err = revision(old, payload, false); err != nil {
-				return nil, err
-			}
-		} // Reports replace the observation, avoiding stale values leaking between sessions.
-		d := Doc{"agent": agent, "revision": Num(old, "revision") + 1, "updatedAt": stamp(s.Now()), "observedAt": stamp(s.Now())}
-		merge(d, payload)
-		if err = put(ctx, tx, "agent", agent, "", d); err != nil {
+	old, err := get(ctx, tx, "agent", agent)
+	if err != nil {
+		if e, ok := err.(*Error); !ok || e.Status != 404 {
 			return nil, err
 		}
-		_, err = s.event(ctx, tx, "agent.usage", Text(payload, "actor"), "", "", "", "Usage reported for "+agent, "")
-		s.decorateUsage(d)
-		return d, err
-	})
+		old = Doc{"revision": float64(0)}
+	}
+	if _, ok := payload["expectedRevision"]; ok {
+		if err = revision(old, payload, false); err != nil {
+			return nil, err
+		}
+	} // Reports replace the observation, avoiding stale values leaking between sessions.
+	d := Doc{"agent": agent, "revision": Num(old, "revision") + 1, "updatedAt": stamp(s.Now()), "observedAt": stamp(s.Now())}
+	merge(d, payload)
+	if err = put(ctx, tx, "agent", agent, "", d); err != nil {
+		return nil, err
+	}
+	_, err = s.event(ctx, tx, "agent.usage", Text(payload, "actor"), "", "", "", "Usage reported for "+agent, "")
+	s.decorateUsage(d)
+	return d, err
 }
+
 func (s *Store) decorateUsage(d Doc) {
 	observed := parse(Text(d, "observedAt"))
 	d["stale"] = observed.IsZero() || !s.Now().Before(observed.Add(s.StaleAfter))
@@ -832,6 +843,10 @@ func (s *Store) Summary(ctx context.Context, pid, agent, status string) (Doc, er
 	if err != nil {
 		return nil, err
 	}
+	presence, err := s.List(ctx, "presence")
+	if err != nil {
+		return nil, err
+	}
 	if pid != "" {
 		if _, err = s.Get(ctx, "project", pid); err != nil {
 			return nil, err
@@ -839,6 +854,7 @@ func (s *Store) Summary(ctx context.Context, pid, agent, status string) (Doc, er
 	}
 	tasks = Filter(tasks, map[string]string{"projectId": pid, "agent": agent, "status": status})
 	projects = Filter(projects, map[string]string{"id": pid})
+	attachActivity(tasks, projects, presence)
 	reports := []Doc{}
 	for _, p := range projects {
 		p = clone(p)
