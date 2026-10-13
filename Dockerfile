@@ -1,11 +1,13 @@
-FROM golang:1.26-alpine AS build
+ARG GO_IMAGE=golang:1.26-alpine
+ARG RUNTIME_IMAGE=alpine:3.23
+FROM ${GO_IMAGE} AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/brainiac ./cmd/brainiac
 
-FROM alpine:3.23
+FROM ${RUNTIME_IMAGE}
 RUN addgroup -g 10001 brainiac && adduser -D -u 10001 -G brainiac brainiac && mkdir /data && chown brainiac:brainiac /data
 COPY --from=build /out/brainiac /usr/local/bin/brainiac
 USER 10001:10001

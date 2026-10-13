@@ -89,6 +89,7 @@ func run() error {
 	app := server.New(store)
 	app.EnableUI()
 	app.EnableMCP()
+	app.EnableDistribution()
 	listener, err := net.Listen("tcp", net.JoinHostPort(ip, strconv.Itoa(port)))
 	if err != nil {
 		return err

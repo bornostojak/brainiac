@@ -1,0 +1,4 @@
+interface:
+  display_name: "Live Progress Monitor"
+  short_description: "Prefer Brainiac, or deploy a temporary Python progress board"
+  default_prompt: "Use $live-progress-monitor to check Brainiac first and use its shared project, or fall back to the original Python board."

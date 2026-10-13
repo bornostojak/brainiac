@@ -27,3 +27,7 @@ tasks. No authentication, TLS, skill bundles or automatic model execution in v1.
 
 Commit each completed stage. Preserve notification history and knowledge
 revisions. Writes and their events are atomic; reads never extend activity.
+
+Accepted additions: compact reported token/context/model/freshness indicators,
+and a served /install.sh that detects installed OpenCode, Claude Code and Codex,
+asks which targets the user wants, and distributes the primary/fallback skills.

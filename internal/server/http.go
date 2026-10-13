@@ -637,7 +637,8 @@ returns source. Without a specific Accept preference, browsers receive HTML and
 other clients Markdown. Context, live state and relevant API links are included.
 
 GET /install.sh serves the interactive installer for installed Codex, Claude Code
-and OpenCode harnesses. It asks which targets to install to. Skill packages:
+and OpenCode harnesses. It asks which targets to install to and whether to add
+MCP. For scripted use, pass --harness NAMES with --mcp or --no-mcp. Skill packages:
 /skills/progress-tracker.tar.gz and /skills/live-progress-monitor.tar.gz.
 
 ## Request example

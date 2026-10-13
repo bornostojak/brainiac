@@ -98,7 +98,7 @@ func TestActivityBoundaryAndRestart(t *testing.T) {
 	if len(f.Notifications) != 2 {
 		t.Fatal("duplicate inactivity event")
 	}
-	p, e = s.UpdateProject(ctx, id, Doc{"lifecycle": "completed"})
+	p, e = s.UpdateProject(ctx, id, Doc{"lifecycle": "completed", "activity": "active"})
 	must(t, p, e)
 	now = now.Add(2 * time.Hour)
 	s.Close()
