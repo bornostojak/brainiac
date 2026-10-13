@@ -33,6 +33,18 @@ async function api(method, path, payload) {
     model: 'reported-model', tokensRemaining: 16000, contextTokens: 40000,
     contextLimit: 200000, observedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
   });
+  await api('POST', `/projects/${project.id}/reports`, {
+    agent: 'browser-builder', provider: 'OpenAI', workingOn: 'API implementation',
+    tasks: [{ taskId: root.id, workingOn: 'Building request validation' }],
+  });
+  await api('POST', `/projects/${project.id}/reports`, {
+    agent: 'browser-helper', provider: 'OpenAI', workingOn: 'Reviewing edge cases',
+    tasks: [{ taskId: root.id, workingOn: 'Reviewing edge cases' }],
+  });
+  await api('POST', `/projects/${project.id}/reports`, {
+    agent: 'browser-reviewer', provider: 'Anthropic', workingOn: 'Checking acceptance',
+    tasks: [{ taskId: child.id, workingOn: 'Acceptance verification' }],
+  });
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage({ viewport: { width: 1200, height: 850 } });
@@ -42,8 +54,16 @@ async function api(method, path, payload) {
     await page.waitForSelector('.item');
     assert.equal(await page.locator('.item').count(), 1);
     assert.ok((await page.locator('#overview').innerText()).includes('55%'));
+    const openai = page.locator('.vendor-table tbody tr').filter({ hasText: 'OpenAI' });
+    assert.equal(await openai.locator('td').nth(1).innerText(), '2');
+    assert.equal(await page.locator('.activity-ball').count(), 1);
+    await page.locator('.activity-cell.working').first().hover();
+    assert.ok((await page.locator('.agent-tooltip').first().innerText()).includes('Reviewing edge cases'));
+    assert.ok((await page.locator('.agent-tooltip').first().innerText()).includes('Building request validation'));
+    await page.locator('#overview').hover();
     await page.getByLabel('Show subtasks').check();
     assert.equal(await page.locator('.item').count(), 2);
+    assert.equal(await page.locator('.activity-ball').count(), 2);
     assert.ok((await page.locator('#list').innerText()).includes('10%'));
     assert.ok((await page.locator('.usage-list').innerText()).includes('ctx 20%'));
     assert.ok((await page.locator('.usage-list').innerText()).includes('stale'));
@@ -55,6 +75,11 @@ async function api(method, path, payload) {
     assert.equal(await page.locator('.item').count(), 1);
     await page.getByLabel('Search', { exact: true }).fill('');
     await page.screenshot({ path: output, fullPage: true });
+    for (const agent of ['browser-builder', 'browser-helper']) {
+      await api('POST', `/projects/${project.id}/agents/${agent}/activity`, { active: false });
+    }
+    await page.waitForFunction(() => [...document.querySelectorAll('.vendor-table tbody tr')].some(row => row.children[0].textContent === 'OpenAI' && row.children[1].textContent === '0'));
+    assert.equal(await page.locator('.item').first().locator('.activity-ball').count(), 0);
     await page.setViewportSize({ width: 390, height: 844 });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     await page.goto(base + '/projects/' + project.id + '/tasks/' + child.id);
@@ -76,6 +101,6 @@ async function api(method, path, payload) {
     await page.getByLabel('Activity filter').selectOption('inactive');
     assert.equal(await page.locator('.item').count(), 0);
     assert.deepEqual(errors, []);
-    console.log('Browser acceptance passed: subtasks, manual progress, usage, SSE, expansion, filters, mobile layout, task view and knowledge.');
+    console.log('Browser acceptance passed: vendor counts, shared-task hover, activity stop, subtasks, progress, usage, SSE, expansion, filters, mobile layout and knowledge.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

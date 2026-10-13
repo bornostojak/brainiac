@@ -34,30 +34,49 @@ Save the returned backend, projectId, project URL, API base and notification
 cursor with the task. Pass them to other agents. Consult the live `/README.md`
 or `/api/v1/openapi.json` instead of guessing supported endpoints.
 
-## Progress and collaboration
+## Efficient progress and collaboration
 
-- Create the task's actual milestones with POST `.../projects/ID/tasks`.
-  Use `parentId` for subtasks; assign stable, globally distinct `agent` handles
-  when separate agents or sessions have separate usage budgets.
-- PATCH each task with observed `percent`, `status`, `detail`, `next`,
-  `verification`, and caller `actor`. Parent and child percentages are manual,
-  independent estimates. Project completion averages top-level tasks.
-- PUT `/api/v1/agents/AGENT/usage` with actual remaining-token/context readings
-  when the harness exposes them. Reports replace earlier observations: include
-  every currently known metric, model/session and source. Missing values are
-  unknown. Never estimate provider allowance or confuse context with completion.
-- Successful project/task updates refresh activity. Use heartbeat only when
-  ongoing work produces no task update. Presence expires after 90 minutes by
-  default; lifecycle completion/archival is separate.
-- Read `/api/v1/notifications/since/CURSOR` for new observations and handoffs.
-  Save `nextCursor`; drain `hasMore` before waiting. Optional `wait=30` long polls.
-  Filter by project or recipient when useful. Use a separate cursor per filter;
-  changing a filter with a previously advanced cursor can omit earlier events.
-- POST `/api/v1/notifications` to share concise messages, with optional project,
-  task, and recipient. Recipient is routing metadata, not a private channel.
-- Project/task `/README.md` views contain editable context and live status.
-  Read the current revision before replacing Markdown; send `expectedRevision`.
-  On 409, reread and merge rather than force-overwriting another agent's work.
+Discover once per session and retain the service/project/task/agent IDs and
+notification cursor. Create actual milestones once. Report at work start,
+meaningful milestones or phase changes, blockers, handoff and finish. During
+uninterrupted work, refresh around every **10–15 minutes**. The one-hour agent
+expiry is a safety timeout, not a reporting cadence. Do not call the service
+per command, file edit, reasoning step, trivial percentage change or chat turn.
+
+Prefer MCP `report_work` or POST `/api/v1/projects/PROJECT/reports` to send one
+atomic batch. Include stable `agent`, actual `provider` (vendor), `workingOn`,
+changed `taskUpdates`, optional measured `usage`, and optional handoff `message`:
+
+```json
+{"agent":"builder-project","provider":"OpenAI","workingOn":"Implementing API validation","taskUpdates":[{"taskId":"TASK","percent":40,"status":"active","detail":"Request validation implemented","next":"Run acceptance checks"}]}
+```
+
+Each agent reports its own project activity; an orchestrator may batch it on
+that agent's behalf. Count an agent once even if it works on several tasks.
+Task ownership alone does not prove activity. Independent `percent` estimates
+remain manual. Project completion averages top-level tasks. Missing vendors
+stay `Unknown`; do not infer vendors or token readings from agent names.
+
+- `tasks: [{"taskId":"TASK","workingOn":"specific work"}]` replaces current
+  assignments. Omit it to retain assignments; task patches add/refresh their
+  assignments and remove those just completed. Include explicit `tasks` when
+  changing focus without changing progress.
+- Set `active:false` at finish or when stopping; this clears the active count
+  immediately. Inactivity also occurs after one hour without a report.
+- For a quiet check-in, `report_agent_activity` / POST
+  `.../projects/PROJECT/agents/AGENT/activity` refreshes the same assignments.
+  A batched progress report already refreshes activity; no extra heartbeat is
+  needed. Project inactivity timeout remains separate (90 minutes by default).
+- Include `usage` in a batch only when measured readings change or are needed.
+  A usage observation replaces the previous one; include all currently known
+  metrics. Omit it to retain the previous observation. Never fabricate limits.
+- Read summaries at coordination points or before dependent work, not after
+  every write. Read notifications with `since/CURSOR`, retain `nextCursor`, and
+  drain `hasMore`. Use separate cursors per filter and long polling only while
+  actually awaiting another agent. Avoid busy-polling.
+- Replace project/task Markdown with `expectedRevision`; on 409 reread and merge.
+  Normal progress PATCH endpoints remain available, but meaningful batches are
+  preferred. Agent presence is not automatic model supervision.
 
 ## Global knowledge
 

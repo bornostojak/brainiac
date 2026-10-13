@@ -37,3 +37,9 @@ IP_ALLOWLIST (empty by default) supporting IPv4/IPv6 addresses and CIDRs.
 Connections whose actual socket destination is in 127.0.0.0/24 bypass the list;
 other destinations require an allowed peer IP. Host/forwarded headers are ignored. Compose host networking preserves socket
 peer IPs; update installed skill/configuration/installer copies used here.
+
+Agent activity feature: project vendor counts and per-task pulsing indicators
+show explicit, per-project agent reports with a one-hour expiry. Support shared
+tasks and work descriptions. Batch task changes, activity, usage and handoffs
+atomically; guide MCP/skills to report meaningful events or quiet 10–15 minute
+check-ins rather than individual commands/edits. Refresh relevant installations.

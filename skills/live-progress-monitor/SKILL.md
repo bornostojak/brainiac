@@ -64,6 +64,13 @@ UI details, history and API instructions are collapsed for a compact overview.
 
 ## Update via curl
 
+Batch reports at work start, meaningful milestones/phase changes, blockers,
+handoffs and completion. During uninterrupted work, check in around every
+10–15 minutes. Do not report each command, file edit or reasoning step, or read
+the board repeatedly without a coordination need. Reuse saved IDs/URLs. With
+Brainiac, prefer one `report_work` call combining task updates and agent activity;
+the original Python fallback uses its existing PATCH API at the same cadence.
+
 Use the selected port from startup JSON. Local writes require loopback curl:
 
 ```bash

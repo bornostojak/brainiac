@@ -120,6 +120,39 @@ Harness references: [OpenCode skills](https://dev.opencode.ai/v2/docs/skills/),
 
 ## Agent workflow
 
+### Active agents and efficient reporting
+
+Project pages show a vendor table above tasks, with unique active-agent counts,
+current work and time to inactivity. Each task's first column has a pulsing ball
+when agents report current work; hover or keyboard-focus it to see every agent
+and their work. Agents may share tasks. Static ownership does not imply activity.
+
+Prefer MCP `report_work` or POST `/api/v1/projects/PROJECT/reports` to batch task
+patches, project-specific agent activity, optional usage and a handoff message in
+one atomic call. Report at work start, a meaningful milestone/phase change,
+blocker, handoff and finish. During uninterrupted work, refresh around every
+10–15 minutes. Do not report each command, edit, reasoning step or tiny percentage
+change. Keep session IDs/cursors and avoid redundant summaries or busy-polling.
+
+```json
+{"agent":"builder-project","provider":"OpenAI","workingOn":"Implementing request validation","taskUpdates":[{"taskId":"TASK","percent":40,"status":"active","detail":"Validation implemented"}],"message":"Ready for review"}
+```
+
+Each project/agent activity report lasts one hour, independent of the 90-minute
+project timeout and five-minute usage freshness. `active:false` stops immediately.
+`tasks:[{"taskId":"TASK","workingOn":"specific work"}]` replaces current
+assignments; omitted assignments are retained, with patched tasks added/refreshed
+and completed ones removed. Task patches cannot target another project. Failure
+rolls back the whole batch, including usage and notifications. Omit `usage` to
+retain its last observation; include it only when measured values warrant it.
+
+Quiet refreshes use POST `/api/v1/projects/PROJECT/agents/AGENT/activity` or MCP
+`report_agent_activity`. No extra project heartbeat is needed after a work report.
+GET `/api/v1/projects/PROJECT/agents` / MCP `list_project_agents` returns presence
+and vendor counts. Summaries also include project `agentActivity`/`vendors` and
+task `activeAgents`. Unknown vendors stay unknown; supply the real provider on
+the first report. Reads never extend the one-hour deadline.
+
 The skill checks `PROGRESS_TRACKER_URL`, its saved installation origin, or
 `http://127.0.0.1:3011`, with bounded requests and service/API identity checks.
 An explicit origin is authoritative. If unavailable, it uses the unchanged

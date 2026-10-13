@@ -1,4 +1,4 @@
 interface:
   display_name: "Progress Tracker"
   short_description: "Track projects, agent progress, usage and shared knowledge"
-  default_prompt: "Use $progress-tracker to reuse Brainiac for this task, or fall back to a temporary progress board if unavailable."
+  default_prompt: "Use $progress-tracker for this task, batching meaningful progress and agent activity reports in Brainiac, with the temporary board as fallback."

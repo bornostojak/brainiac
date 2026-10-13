@@ -208,4 +208,29 @@ func TestAgentActivityPersistenceAndNoOwnershipInference(t *testing.T) {
 	if len(summary["tasks"].([]Doc)[0]["activeAgents"].([]Doc)) != 1 {
 		t.Fatal("presence lost across restart")
 	}
+	s.Close()
+	now = now.Add(time.Hour)
+	s, err = Open(path, 90*time.Minute, 5*time.Minute, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	agents, err := s.ProjectAgents(ctx, pid)
+	agents = must(t, agents, err)
+	if agents["agents"].([]Doc)[0]["active"] != false {
+		t.Fatal("restart did not reconcile expired agent")
+	}
+	feed, err := s.Feed(ctx, FeedOptions{Limit: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	expired := 0
+	for _, n := range feed.Notifications {
+		if Text(n, "kind") == "agent.inactive" {
+			expired++
+		}
+	}
+	if expired != 1 {
+		t.Fatal("restart must publish one inactivity event", expired)
+	}
 }

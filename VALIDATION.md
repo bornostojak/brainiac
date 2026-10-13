@@ -47,7 +47,8 @@ preserved project/task IDs, knowledge revisions and notification history.
 
 ## Listener and IP/CIDR access policy
 
-The default listener is `127.0.0.1:3011`, with an empty `IP_ALLOWLIST`.
+The default listener is `127.0.0.1:3011` with an empty `IP_ALLOWLIST`.
+Deployment-specific listener and allowlist values belong in ignored `.env` files.
 Requests whose actual socket destination is in `127.0.0.0/24` bypass the list;
 other destinations require an allowed client address or IPv4/IPv6 CIDR.
 Host/forwarding headers cannot enable the exemption. Compose uses host networking
@@ -60,3 +61,28 @@ instance with an explicit CIDR allowed its matching client and was then removed.
 Existing project/task IDs, knowledge revisions and notification history survived
 the deployment. The used Codex skill packages and installer copy were refreshed;
 Existing harness settings were preserved.
+
+## Project agent activity and efficient reporting
+
+- One-hour agent expiry passed with an injected clock, including exact boundary,
+  reads, stop/renewal, restart, and one inactivity event per transition.
+- Project/vendor counts remain isolated and count shared-task agents only once.
+  Explicit assignments supply per-task work descriptions; ownership alone never
+  creates presence. Completed tasks have no working indicator.
+- Atomic reports combine task patches, presence, measured usage and messages.
+  Cross-project references and revision conflicts roll back the complete batch,
+  including notifications; partial patches preserve other assignments.
+- `go test ./...`, `go test -race ./...`, and `go vet ./...` passed. HTTP and
+  stdio SDK clients exercised all three added activity/report tools.
+- Headless Chromium passed vendor counts, multiple-agent hover descriptions,
+  live stop/removal, nested-task indicators, preserved expansion, filters,
+  usage, mobile width and safe knowledge rendering. The original Python
+  monitor self-test and both skill validators passed.
+- The rebuilt Compose deployment is healthy at `127.0.0.1:3011`, retaining
+  privately configured listener/access settings, project/task IDs, knowledge
+  revisions and notification history. Live MCP discovery exposes 24 tools and
+  the efficient reporting instructions.
+- Updated both installed Codex skills and the used installer copy; tracked files
+  match installed packages. Server guidance favors one batched report
+  per meaningful milestone and quiet 10–15 minute check-ins, avoiding calls for
+  each command, edit or reasoning step.
