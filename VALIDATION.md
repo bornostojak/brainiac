@@ -233,3 +233,33 @@ retroactively open dialogs for agents already waiting on an existing request.
   correction; acceptance fixtures were confined to disposable services.
 - All reachable tracked history and new working files passed the privacy scan;
   requested author/committer attribution is retained.
+
+## Project-only notification APIs and authorized history clear (1.5.0)
+
+- The global /api/v1/notifications and since routes now return 404 for reads and
+  writes. REST and MCP notification reads/messages require an immutable project
+  path/ID. Payload/query project mismatches are rejected. Tests with identical
+  agent and recipient labels in separate projects confirm no cross-project
+  delivery; unrelated writes do not complete a project's long-poll read.
+- Browser /notifications requires a project selection and never combines feeds.
+  Chromium passed empty initial selection, choosing a project, filtering, paging
+  and live refresh. Homepage combined history is hidden; project recent updates
+  stay scoped. Explicit all-project overview/attention SSE streams preserve the
+  user's cross-project heads-up alerts without reopening the global REST feed.
+- Discovery returns the selected project's notification endpoint/cursor, and
+  both installed skill packages teach per-project/filter cursors and project-only
+  messages. The HTTP/stdio MCP smoke checks passed against the deployed service;
+  notification tools require projectId. Attention-list MCP reads also require it.
+- Local clear-notifications administration deletes only notification rows, does
+  not run migrations or reset sqlite_sequence, and is not exposed through API/MCP.
+  Tests confirm entity state, independent guidance, revision histories and held
+  cursors survive clearing, and future updates never reuse notification numbers.
+- At the user's explicit request, 535 existing notification rows were removed
+  from the deployment. All project feeds were verified empty; project/task IDs,
+  lesson indexes, knowledge and attention notices remained intact. Existing cursor
+  high-water marks were preserved. Future project changes can create new updates.
+- Full Go tests, race detection, vet, Python checks, skill validation and browser
+  acceptance passed. Compose remains healthy on port 3011; both served/installed
+  packages and the native stdio bridge were refreshed. Private listener/allowlist
+  settings remain unchanged and ignored; tracked/new content passed the privacy
+  scan. Requested Git attribution is retained.
