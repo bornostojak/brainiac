@@ -263,3 +263,10 @@ retroactively open dialogs for agents already waiting on an existing request.
   packages and the native stdio bridge were refreshed. Private listener/allowlist
   settings remain unchanged and ignored; tracked/new content passed the privacy
   scan. Requested Git attribution is retained.
+
+## Direct project notification navigation (1.5.1)
+
+The header Notifications link on project, task, README and lessons views now
+includes the current project ID. Browser checks verified that project, README
+and lessons links open the notification feed with that project already selected.
+Existing Go acceptance tests passed. No skill or API behavior changed.

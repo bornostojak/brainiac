@@ -6,6 +6,10 @@
   host.setAttribute('aria-live', 'polite');
   document.body.append(host);
   const nav = document.querySelector('header nav');
+  const page = location.pathname.split('/').filter(Boolean);
+  if (page[0] === 'projects' && page[1]) {
+    nav?.querySelector('a[href="/notifications"]')?.setAttribute('href', '/notifications?projectId=' + encodeURIComponent(page[1]));
+  }
   const pendingButton = node('button', 'Attention notices', 'alert-button');
   pendingButton.hidden = true;
   const desktopButton = node('button', 'Desktop alerts', 'alert-button');
