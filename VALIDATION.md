@@ -297,3 +297,17 @@ Existing Go acceptance tests passed. No skill or API behavior changed.
   Guidance reports actual harness at start/change in existing work batches.
 - Tracked/new content passed the private-data scan. Requested Git attribution
   is retained; synthetic browser records remained in the disposable instance.
+
+## Default-on idle agent filter (1.6.1)
+
+- Project agent tables start with Hide idle agents enabled. Live updates remove
+  stopped agents; disabling the toggle reveals their retained usage and limits.
+  Active/total counts continue to include all agents. The choice survives live
+  refreshes, and a new page load defaults to hiding idle agents.
+- Chromium acceptance verified the default, live removal, toggle state and
+  revealed rows, alongside existing desktop/mobile and collaboration behavior.
+  Go acceptance tests and JavaScript syntax checks passed. Toggling uses cached
+  project state without an additional API request. Skills and MCP are unchanged.
+- Compose configuration passed validation. The rebuilt deployment is healthy on
+  port 3011, reports version 1.6.1 and serves the verified toggle assets. Existing
+  persistent data and private deployment settings remain unchanged.

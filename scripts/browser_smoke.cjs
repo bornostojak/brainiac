@@ -57,6 +57,7 @@ async function api(method, path, payload) {
     await page.waitForSelector('.item');
     assert.equal(await page.locator('.item').count(), 1);
     assert.ok((await page.locator('#overview').innerText()).includes('55%'));
+    assert.equal(await page.getByRole('button', { name: 'Hide idle agents', exact: true }).getAttribute('aria-pressed'), 'true');
     assert.equal(await page.locator('.agent-table tbody tr').count(), 3);
     const builder = page.locator('.agent-table tr[data-agent="browser-builder"]');
     const helper = page.locator('.agent-table tr[data-agent="browser-helper"]');
@@ -127,6 +128,10 @@ async function api(method, path, payload) {
     for (const agent of ['browser-builder', 'browser-helper']) {
       await api('POST', `/projects/${project.id}/agents/${agent}/activity`, { active: false });
     }
+    await page.waitForFunction(() => !document.querySelector('.agent-table tr[data-agent="browser-builder"]') && !document.querySelector('.agent-table tr[data-agent="browser-helper"]'));
+    assert.equal(await page.locator('.agent-table tbody tr').count(), 4);
+    await page.getByRole('button', { name: 'Hide idle agents', exact: true }).click();
+    assert.equal(await page.getByRole('button', { name: 'Hide idle agents', exact: true }).getAttribute('aria-pressed'), 'false');
     await page.waitForFunction(() => document.querySelector('.agent-table tr[data-agent="browser-builder"]').dataset.active === 'false' && document.querySelector('.agent-table tr[data-agent="browser-helper"]').dataset.active === 'false');
     assert.equal(await page.locator('.item').first().locator('.activity-ball').count(), 0);
     assert.ok((await builder.locator('.limit-cell').nth(0).innerText()).includes('16K left'));
@@ -285,6 +290,6 @@ async function api(method, path, payload) {
     await page.screenshot({ path: output.replace(/\.png$/, '-notifications.png'), fullPage: true });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     assert.deepEqual(errors, []);
-    console.log('Browser acceptance passed: 2:1 header, live work summary, compact agent/model/harness rows, vendor icons/hover/clipboard and HTTP copy fallback, exact usage bars, unknown limits, mobile table; attention-only cross-project notices, native-chat links, polling, subtasks, SSE, filters, knowledge, scoped lesson memory/revisions and paginated live notification review.');
+    console.log('Browser acceptance passed: 2:1 header, live work summary, compact agent/model/harness rows, default-on hide-idle toggle with live removal/reveal, vendor icons/hover/clipboard and HTTP copy fallback, exact usage bars, unknown limits, mobile table; attention-only cross-project notices, native-chat links, polling, subtasks, SSE, filters, knowledge, scoped lesson memory/revisions and paginated live notification review.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
