@@ -90,15 +90,25 @@ bars. Keep unavailable measurements unknown; do not guess limits or models.
 
 ## User input and service instructions
 
-For a real user decision, include `inputRequest:{"title":"Choose output",
+Use the host app's native user-question tool, or ask in its chat, for real user
+decisions. Brainiac is a companion alert: never replace or suppress the host's
+input prompts, permission dialogs or approval flow. When mirroring a question,
+include `inputRequest:{"title":"Choose output",
 "message":"Which format should be used?","taskId":"TASK","externalKey":"output-choice"}`
 in a blocker `report_work`, or use MCP `request_input` / POST
 `/api/v1/input-requests` with projectId and agent. Retain its ID. Reuse the same
 externalKey for retries of that question; use a new key for a new question.
 Every open browser view receives a popup regardless of its current project.
+Posting it does not prompt the host app: ask there too, immediately. If the native
+question tool blocks until answered, post the mirror first and then invoke that
+tool. Resolve the mirror using the actual answer received in the host app;
+do not ask the user to answer the same question twice. Use Brainiac alone only
+when the host has no user-input channel or the user explicitly chooses it.
 Read the response with `get_input_request` or the normal `input.resolved` feed
 event at coordination points. A dismissal is not an answer or approval. Never
 invent a response; stay blocked on dependent work until actual input arrives.
+Brainiac responses never substitute for required native execution permissions
+or approval dialogs.
 
 Check MCP `list_instructions` / GET `/api/v1/instructions?agent=AGENT&projectId=PROJECT`
 once at session start. Later work/activity reports include pending `instructions`

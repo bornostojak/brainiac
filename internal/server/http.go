@@ -651,6 +651,14 @@ Read /api/v1/openapi.json for the machine-readable contract. MCP: /mcp.
 
 ## User input and service instructions
 
+Use the host app's native user-question tool or chat as the primary input path.
+Brainiac creates an additional browser alert; it does not open native Desktop
+dialogs. Also ask in the host, preserving its input, permission and approval
+flows. If that question tool blocks, post the mirror first and then ask natively.
+Resolve the mirror from the actual host answer without demanding a second answer.
+Brainiac alone is for hosts without input channels or an explicit user preference;
+browser responses never substitute for native execution permissions.
+
 POST /api/v1/input-requests with projectId, agent, title, message and optional
 taskId/externalKey, or include inputRequest in a blocker work report. A stable
 externalKey deduplicates retries per project/agent. Every open browser project,

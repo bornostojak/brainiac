@@ -133,6 +133,14 @@ Harness references: [OpenCode skills](https://dev.opencode.ai/v2/docs/skills/),
 
 Agents can request a user decision with MCP `request_input` or POST
 `/api/v1/input-requests` (projectId, agent, title, message, optional taskId).
+The host app's native question tool or chat remains the primary input channel.
+Brainiac mirrors the question as an additional alert; its tools do not open native
+Desktop dialogs. Agents must also ask in the host app, preserving its normal
+input, permission and approval paths. If the native question tool blocks, create
+the mirror first and then ask natively. Resolve the mirror from the real native
+answer so the user need not answer twice. Brainiac alone is appropriate only
+when no host input channel exists or the user explicitly chooses it; browser
+responses never grant required native execution permissions.
 Alternatively include `inputRequest` in a blocker `report_work` batch to report
 the blocker and ask the question in one call. An optional `externalKey` deduplicates
 retries per project/agent, including already answered questions; use a new key for

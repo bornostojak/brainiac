@@ -153,3 +153,17 @@ and database artifacts. The active private deployment settings remain local.
   settings. Updated skill packages teach the project lead to maintain summary
   text in existing meaningful report batches; workers update their own focus and
   actual vendor/model. No additional per-action request is required.
+
+## Native input routing guidance (1.2.1)
+
+Both skill packages, MCP initialization/tool descriptions and the API guide now
+preserve native host question/chat input and permission/approval paths. Brainiac
+requests complement those paths as mirror alerts; posting a request never opens
+a native host dialog. A real native answer resolves its mirror without requiring
+another answer. Brainiac-only input requires an explicit user choice or a host
+without an input channel.
+
+Go acceptance tests, including HTTP/stdio MCP and the served installer, Python
+checks and both skill validators passed. Native dialog presentation remains a
+host responsibility; this correction changes agent guidance and does not
+retroactively open dialogs for agents already waiting on an existing request.
