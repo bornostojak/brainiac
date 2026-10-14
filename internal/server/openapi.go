@@ -38,7 +38,7 @@ func OpenAPI() map[string]any {
 	schema("TaskCreate", "name parentId status percent agent detail next verification readme actor", "name")
 	schema("TaskPatch", "name status percent agent detail next verification readme actor expectedRevision", "")
 	schema("Heartbeat", "actor expectedRevision", "")
-	schema("Message", "actor projectId taskId recipient message", "message")
+	schema("Message", "actor taskId recipient message", "message")
 	schema("KnowledgeCreate", "slug title summary tags body sourceProjectId sourceTaskId sourceAgent actor", "slug title body")
 	schema("KnowledgePatch", "title summary tags body sourceProjectId sourceTaskId sourceAgent actor expectedRevision", "expectedRevision")
 	schema("LessonCreate", "title summary kind status confidence attempt outcome correction evidence tags taskId agent externalKey actor", "title correction")
@@ -121,8 +121,8 @@ func OpenAPI() map[string]any {
 				query = "projectId agent status"
 			case "/projects/{projectId}/summary":
 				query = "agent status"
-			case "/notifications", "/notifications/since/{number}":
-				query = "since limit wait projectId taskId actor recipient kind knowledgeSlug lessonId"
+			case "/projects/{projectId}/notifications", "/projects/{projectId}/notifications/since/{number}":
+				query = "since limit wait taskId actor recipient kind knowledgeSlug lessonId"
 			case "/knowledge":
 				query = "q tag"
 			case "/input-requests":
@@ -172,9 +172,9 @@ func OpenAPI() map[string]any {
 	add("/projects/{projectId}/tasks/{taskId}", "patch", "Update task; readme replacement requires expectedRevision", "TaskPatch")
 	add("/summary", "get", "Global summary", "")
 	add("/projects/{projectId}/summary", "get", "Project summary", "")
-	add("/notifications", "get", "Read numbered updates", "")
-	add("/notifications", "post", "Post agent message", "Message")
-	add("/notifications/since/{number}", "get", "Read updates strictly after number; continue using nextCursor", "")
+	add("/projects/{projectId}/notifications", "get", "Read only this project's numbered updates", "")
+	add("/projects/{projectId}/notifications", "post", "Post an agent message within this project", "Message")
+	add("/projects/{projectId}/notifications/since/{number}", "get", "Read updates strictly after number; continue using nextCursor", "")
 	add("/knowledge", "get", "Knowledge index without bodies", "")
 	add("/knowledge", "post", "Publish reusable Markdown", "KnowledgeCreate")
 	add("/knowledge/{slug}", "get", "Fetch knowledge article", "")

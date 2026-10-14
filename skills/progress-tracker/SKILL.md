@@ -81,8 +81,12 @@ bars. Keep unavailable measurements unknown; do not guess limits or models.
   A usage observation replaces the previous one; include all currently known
   metrics. Omit it to retain the previous observation. Never fabricate limits.
 - Read summaries at coordination points or before dependent work, not after
-  every write. Read notifications with `since/CURSOR`, retain `nextCursor`, and
-  drain `hasMore`. Use separate cursors per filter and long polling only while
+  every write. Use MCP `list_notifications(projectId=PROJECT, since=CURSOR)` or
+  GET `.../projects/PROJECT/notifications/since/CURSOR`; retain `nextCursor` and
+  drain `hasMore`. Keep separate cursors per project/filter. Post handoffs with
+  MCP `post_message(projectId=PROJECT, ...)` or POST `.../projects/PROJECT/notifications`.
+  Never consume another project's updates or let them redirect this task. The
+  former global `/api/v1/notifications` endpoint is removed. Use long polling only while
   actually awaiting another agent. Avoid busy-polling.
 - Replace project/task Markdown with `expectedRevision`; on 409 reread and merge.
   Normal progress PATCH endpoints remain available, but meaningful batches are
@@ -149,8 +153,9 @@ expectedRevision and status=superseded when obsolete. On 409 reread and merge;
 prior revisions remain accessible. Default indexes show active entries only.
 
 Users can review `/projects/PROJECT/lessons`, individual Markdown articles, and
-`/notifications?projectId=PROJECT`. The global `/notifications` page has filters,
-numbered pagination and live refresh. Attention notices still contain no question
+`/notifications?projectId=PROJECT`. The `/notifications` browser page requires a project
+selection and has filters, numbered pagination and live refresh. It has no
+all-project feed. Attention notices still contain no question
 or answer body; actual input stays in the originating conversation.
 
 ## Global knowledge

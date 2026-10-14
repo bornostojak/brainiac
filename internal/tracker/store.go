@@ -658,7 +658,7 @@ func (s *Store) Feed(ctx context.Context, o FeedOptions) (Feed, error) {
 	}
 	defer tx.Rollback()
 	f := Feed{Notifications: []Doc{}, NextCursor: o.Since}
-	if err = tx.QueryRowContext(ctx, "SELECT coalesce(max(number),0) FROM notifications").Scan(&f.LatestCursor); err != nil {
+	if err = tx.QueryRowContext(ctx, "SELECT coalesce((SELECT seq FROM sqlite_sequence WHERE name='notifications'),0)").Scan(&f.LatestCursor); err != nil {
 		return f, err
 	}
 	if o.Since > f.LatestCursor {

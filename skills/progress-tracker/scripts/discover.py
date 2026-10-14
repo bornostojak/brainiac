@@ -68,8 +68,8 @@ def discover(args):
         else:
             return {'backend': 'brainiac', 'serviceUrl': base, 'projectId': None, 'externalKey': key, 'needsCreate': True}
         project_id = project['id']
-    cursor = request(base, '/api/v1/notifications?limit=1')['latestCursor']
-    return {'backend': 'brainiac', 'serviceUrl': base, 'projectId': project_id, 'url': base + '/projects/' + project_id, 'api': base + '/api/v1/projects/' + project_id, 'readme': base + '/projects/' + project_id + '/README.md', 'mcp': base + '/mcp', 'cursor': cursor}
+    cursor = request(base, '/api/v1/projects/' + project_id + '/notifications?limit=1')['latestCursor']
+    return {'backend': 'brainiac', 'serviceUrl': base, 'projectId': project_id, 'url': base + '/projects/' + project_id, 'api': base + '/api/v1/projects/' + project_id, 'readme': base + '/projects/' + project_id + '/README.md', 'mcp': base + '/mcp', 'cursor': cursor, 'notifications': base + '/api/v1/projects/' + project_id + '/notifications'}
 
 
 def main():

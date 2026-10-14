@@ -86,7 +86,7 @@ func TestAPIValidationAndKnowledge(t *testing.T) {
 	if code != 403 {
 		t.Fatal(code)
 	}
-	code, _ = call(t, server, "GET", "/api/v1/notifications/since/0?wait=31", "", nil)
+	code, _ = call(t, server, "GET", "/api/v1/projects/"+pid+"/notifications/since/0?wait=31", "", nil)
 	if code != 400 {
 		t.Fatal(code)
 	}
@@ -140,7 +140,7 @@ func TestSSEReplay(t *testing.T) {
 			t.Fatal(e)
 		}
 	}
-	req, e := http.NewRequest("GET", server.URL+"/events", nil)
+	req, e := http.NewRequest("GET", server.URL+"/events?scope=all", nil)
 	if e != nil {
 		t.Fatal(e)
 	}

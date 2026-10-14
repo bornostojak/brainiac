@@ -108,10 +108,8 @@
   // Markdown/browser pages have no dashboard stream, but still receive alerts.
   if (!document.body.hasAttribute('data-progress-page')) {
     (async () => {
-      let cursor = 0;
-      try { cursor = (await (await fetch('/api/v1/notifications?limit=1')).json()).latestCursor; } catch {}
       await refresh();
-      stream = new EventSource('/events?since=' + cursor);
+      stream = new EventSource('/events?scope=all&since=tail');
       stream.onopen = () => { live = true; refresh(); };
       stream.onerror = () => { live = false; };
       stream.addEventListener('update', event => { try { onEvent(JSON.parse(event.data)); } catch {} });

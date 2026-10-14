@@ -85,7 +85,7 @@ func TestLessonAPIAndReadableReview(t *testing.T) {
 			t.Fatal(code, string(body))
 		}
 	}
-	code, body = call(t, s, "GET", "/api/v1/notifications?lessonId="+id, "", nil)
+	code, body = call(t, s, "GET", "/api/v1/projects/"+pid+"/notifications?lessonId="+id, "", nil)
 	var feed tracker.Feed
 	json.Unmarshal(body, &feed)
 	if code != 200 || len(feed.Notifications) != 2 || tracker.Text(feed.Notifications[0], "lessonId") != id {

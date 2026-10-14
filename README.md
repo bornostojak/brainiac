@@ -163,12 +163,13 @@ articles at `/projects/{projectId}/lessons/README.md` and
 `/projects/{projectId}/lessons/{lessonId}/README.md`. The project page shows recent
 active lessons. Markdown negotiation and safe rendering match other READMEs.
 
-Users can review the full numbered feed at `/notifications`, filter by project,
+Users review `/notifications` after selecting a project, then filter by
 kind, agent, task or recipient, and browse pages oldest first. Search covers the
 current page; **Recent updates** jumps to the latest 100 global update numbers
-while retaining filters. Project links open `/notifications?projectId=PROJECT`.
+while retaining the selected project and filters. There is no all-project feed.
+Project links open `/notifications?projectId=PROJECT`.
 New committed changes refresh the selected page without moving its starting
-cursor. API notifications also support an exact lessonId filter. Attention
+cursor. Project notification APIs also support an exact lessonId filter. Attention
 notices remain generic; questions and answers stay in the originating chat.
 
 ### Input popups and independent service instructions
@@ -331,20 +332,32 @@ do not sum a shared account allowance across tasks.
 ### Numbered collaboration feed
 
 ```sh
-curl --fail 'http://127.0.0.1:3011/api/v1/notifications/since/0?limit=100&wait=30'
+curl --fail 'http://127.0.0.1:3011/api/v1/projects/PROJECT/notifications/since/0?limit=100&wait=30'
 ```
 
 Save `nextCursor`, drain pages while `hasMore`, then request `since/nextCursor`.
 `latestCursor` is the database head, not permission to skip unread pages.
-Filters include project/task, actor, recipient, kind and knowledge slug. Keep
+The path fixes the project; filters include task, actor, recipient, kind, lesson
+ID and knowledge slug. Keep
 separate cursors for different filters. Recipient filters include broadcasts.
 Numbers survive restarts and are published only after the state transaction
-commits. History is unpruned. A cursor ahead of the database returns `409`:
+commits. History is retained unless explicitly cleared by the operator. Clearing
+does not
+reset sequence numbers or remove projects, tasks, knowledge, lessons or attention
+notices. Local administration: `brainiac clear-notifications --data PATH`, or
+`docker compose exec -T brainiac brainiac clear-notifications`. No HTTP/MCP
+history-clear operation is exposed. A cursor ahead of the database returns `409`:
 refresh the summary and restart from zero (for example after restoring a backup).
 
-POST `/api/v1/notifications` with `message`, `actor` and optional `projectId`,
-`taskId`, `recipient` to share handoffs. Labels do not create private messages.
-SSE `/events` supports project filters and `Last-Event-ID` replay. These mechanisms
+GET/POST `/api/v1/projects/{projectId}/notifications` and GET
+`.../notifications/since/{number}` read updates or share handoffs within that
+project. Messages accept `message`, `actor` and optional `taskId`, `recipient`.
+The global `/api/v1/notifications` and its `since` route are removed (404), including
+when a projectId query is supplied. MCP notification/message tools require
+projectId; discovery retains a cursor and notification URL for the selected
+project. Labels do not create private messages.
+Agent SSE uses `/events?projectId=PROJECT`; all-project browser overview/attention
+streams require explicit `scope=all`. SSE supports `Last-Event-ID` replay. These mechanisms
 coordinate connected/polling agents; the orchestrator decides when to run models.
 
 ### Reusable global knowledge

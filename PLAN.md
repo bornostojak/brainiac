@@ -74,3 +74,12 @@ reports. Add compact project lesson views and a user-facing numbered notificatio
 review page with filters, pagination and live refresh. Validate isolation, atomic
 rollback, persistence, browser/MCP behavior, then refresh deployment/skills and
 publish the versioned commit.
+
+Project-only notifications: remove the global REST notification routes; require
+project IDs in REST/MCP reads and messages. Browser /notifications remains a
+project chooser and never combines feeds. Discovery and skills retain one cursor
+per project/filter. Preserve explicit browser overview/attention streams and
+project SSE for agents. Clear all existing numbered notification rows locally
+as requested, preserving entity state and monotonic sequence high-water marks.
+Validate isolation, pagination/long-polling, cursor behavior after clear and
+browser project selection; refresh skills/stack and publish the release.

@@ -70,7 +70,7 @@ class SkillChecks(unittest.TestCase):
                 project = {'id': 'stable-project'}
                 projects.append(project)
                 return project
-            if path.startswith('/api/v1/notifications'):
+            if path.startswith('/api/v1/projects/stable-project/notifications'):
                 return {'latestCursor': 15}
             raise AssertionError(path)
         original_request = discover.request
@@ -86,6 +86,8 @@ class SkillChecks(unittest.TestCase):
             self.assertEqual(discover.discover(args)['projectId'], 'stable-project')
             self.assertEqual(discover.discover(args)['projectId'], 'stable-project')
             self.assertEqual(sum(payload is not None for _, payload in requests), 1)
+            self.assertTrue(any(path == '/api/v1/projects/stable-project/notifications?limit=1' for path, _ in requests))
+            self.assertFalse(any(path.startswith('/api/v1/notifications') for path, _ in requests))
             args.project_id = '../knowledge/example'
             with self.assertRaises(ValueError):
                 discover.discover(args)

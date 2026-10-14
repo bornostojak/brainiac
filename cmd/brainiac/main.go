@@ -50,6 +50,18 @@ func env(key, fallback string) string {
 func run() error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	if len(os.Args) > 1 && os.Args[1] == "clear-notifications" {
+		flags := flag.NewFlagSet("clear-notifications", flag.ContinueOnError)
+		path := flags.String("data", env("DATA_PATH", "data/brainiac.db"), "existing database path")
+		if err := flags.Parse(os.Args[2:]); err != nil {
+			return err
+		}
+		count, err := tracker.ClearNotificationHistory(ctx, *path)
+		if err == nil {
+			fmt.Printf("Cleared %d notifications; entity state and notification numbering preserved.\n", count)
+		}
+		return err
+	}
 	if len(os.Args) > 1 && os.Args[1] == "mcp-stdio" {
 		flags := flag.NewFlagSet("mcp-stdio", flag.ContinueOnError)
 		base := flags.String("url", env("PROGRESS_TRACKER_URL", "http://127.0.0.1:3011"), "shared service URL")
@@ -63,7 +75,7 @@ func run() error {
 		return server.MCPServer(remote).Run(ctx, &mcp.StdioTransport{})
 	}
 	if len(os.Args) > 1 {
-		return fmt.Errorf("usage: brainiac [healthcheck --url URL | mcp-stdio --url URL]")
+		return fmt.Errorf("usage: brainiac [healthcheck --url URL | mcp-stdio --url URL | clear-notifications --data PATH]")
 	}
 	timeout, err := time.ParseDuration(env("ACTIVITY_TIMEOUT", "90m"))
 	if err != nil {

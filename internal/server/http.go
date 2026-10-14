@@ -235,6 +235,49 @@ func (a *App) Dispatch(ctx context.Context, method, path string, q url.Values, p
 		}
 		if len(p) >= 2 {
 			pid := p[1]
+			if (len(p) == 3 || len(p) == 5 && p[3] == "since") && p[2] == "notifications" {
+				if _, err := s.Get(ctx, "project", pid); err != nil {
+					return nil, err
+				}
+				if q.Get("projectId") != "" && q.Get("projectId") != pid {
+					return nil, &tracker.Error{Status: 400, Message: "projectId does not match the URL"}
+				}
+				if len(p) == 3 && method == "POST" {
+					input := tracker.Doc{}
+					for key, value := range payload {
+						input[key] = value
+					}
+					if value, ok := input["projectId"]; ok && value != pid {
+						return nil, &tracker.Error{Status: 400, Message: "projectId does not match the URL"}
+					}
+					input["projectId"] = pid
+					return s.Message(ctx, input)
+				}
+				if method == "GET" && (len(p) == 3 || len(p) == 5 && p[3] == "since") {
+					since, e := integer(q, "since", 0)
+					if e != nil {
+						return nil, e
+					}
+					if len(p) == 5 {
+						since, e = strconv.ParseInt(p[4], 10, 64)
+						if e != nil || since < 0 {
+							return nil, &tracker.Error{Status: 400, Message: "Invalid cursor"}
+						}
+					}
+					limit, e := integer(q, "limit", 100)
+					if e != nil {
+						return nil, e
+					}
+					wait, e := integer(q, "wait", 0)
+					if e != nil {
+						return nil, e
+					}
+					if wait > 30 {
+						return nil, &tracker.Error{Status: 400, Message: "wait must be 0..30"}
+					}
+					return s.WaitFeed(ctx, tracker.FeedOptions{Since: since, Limit: int(limit), ProjectID: pid, TaskID: q.Get("taskId"), Actor: q.Get("actor"), Recipient: q.Get("recipient"), Kind: q.Get("kind"), KnowledgeSlug: q.Get("knowledgeSlug"), LessonID: q.Get("lessonId")}, time.Duration(wait)*time.Second)
+				}
+			}
 			if len(p) == 3 && p[2] == "reports" && method == "POST" {
 				return s.ReportWork(ctx, pid, payload)
 			}
@@ -334,34 +377,6 @@ func (a *App) Dispatch(ctx context.Context, method, path string, q url.Values, p
 		if len(p) == 1 && method == "GET" {
 			return s.Summary(ctx, q.Get("projectId"), q.Get("agent"), q.Get("status"))
 		}
-	case "notifications":
-		if len(p) == 1 && method == "POST" {
-			return s.Message(ctx, payload)
-		}
-		if method == "GET" && (len(p) == 1 || len(p) == 3 && p[1] == "since") {
-			since, e := integer(q, "since", 0)
-			if e != nil {
-				return nil, e
-			}
-			if len(p) == 3 {
-				since, e = strconv.ParseInt(p[2], 10, 64)
-				if e != nil || since < 0 {
-					return nil, &tracker.Error{Status: 400, Message: "Invalid cursor"}
-				}
-			}
-			limit, e := integer(q, "limit", 100)
-			if e != nil {
-				return nil, e
-			}
-			wait, e := integer(q, "wait", 0)
-			if e != nil {
-				return nil, e
-			}
-			if wait > 30 {
-				return nil, &tracker.Error{Status: 400, Message: "wait must be 0..30"}
-			}
-			return s.WaitFeed(ctx, tracker.FeedOptions{Since: since, Limit: int(limit), ProjectID: q.Get("projectId"), TaskID: q.Get("taskId"), Actor: q.Get("actor"), Recipient: q.Get("recipient"), Kind: q.Get("kind"), KnowledgeSlug: q.Get("knowledgeSlug"), LessonID: q.Get("lessonId")}, time.Duration(wait)*time.Second)
-		}
 	case "knowledge":
 		if len(p) == 1 {
 			if method == "POST" {
@@ -434,7 +449,7 @@ func (a *App) Dispatch(ctx context.Context, method, path string, q url.Values, p
 func knownPath(p []string) bool {
 	if len(p) == 1 {
 		switch p[0] {
-		case "projects", "knowledge", "agents", "notifications", "summary", "input-requests", "instructions":
+		case "projects", "knowledge", "agents", "summary", "input-requests", "instructions":
 			return true
 		}
 	}
@@ -445,7 +460,7 @@ func knownPath(p []string) bool {
 		return len(p) == 2 || len(p) == 3 && p[2] == "acknowledgements"
 	}
 	if p[0] == "projects" {
-		return len(p) == 2 || len(p) == 3 && (p[2] == "tasks" || p[2] == "summary" || p[2] == "heartbeat" || p[2] == "agents" || p[2] == "reports" || p[2] == "lessons") || len(p) == 4 && (p[2] == "tasks" || p[2] == "lessons") || (len(p) == 5 || len(p) == 6) && p[2] == "lessons" && p[4] == "revisions" || len(p) == 5 && p[2] == "agents" && p[4] == "activity"
+		return len(p) == 2 || len(p) == 3 && (p[2] == "tasks" || p[2] == "summary" || p[2] == "heartbeat" || p[2] == "agents" || p[2] == "reports" || p[2] == "lessons" || p[2] == "notifications") || len(p) == 4 && (p[2] == "tasks" || p[2] == "lessons") || (len(p) == 5 || len(p) == 6) && p[2] == "lessons" && p[4] == "revisions" || len(p) == 5 && p[2] == "notifications" && p[3] == "since" || len(p) == 5 && p[2] == "agents" && p[4] == "activity"
 	}
 	if p[0] == "knowledge" {
 		return len(p) == 2 || len(p) == 3 && p[2] == "revisions" || len(p) == 4 && p[2] == "revisions"
@@ -471,7 +486,19 @@ func search(items []tracker.Doc, q, keys string) []tracker.Doc {
 }
 
 func (a *App) events(w http.ResponseWriter, r *http.Request) {
+	if pid := r.URL.Query().Get("projectId"); pid != "" {
+		if _, err := a.Store.Get(r.Context(), "project", pid); err != nil {
+			fail(w, err)
+			return
+		}
+	} else if r.URL.Query().Get("scope") != "all" {
+		fail(w, &tracker.Error{Status: 400, Message: "SSE requires projectId; browser overview streams use scope=all"})
+		return
+	}
 	since, err := integer(r.URL.Query(), "since", 0)
+	if r.URL.Query().Get("since") == "tail" {
+		since, err = a.Store.NotificationCursor(r.Context())
+	}
 	if last := r.Header.Get("Last-Event-ID"); last != "" {
 		since, err = strconv.ParseInt(last, 10, 64)
 	}
@@ -742,7 +769,7 @@ agent/actor and commits lessons, progress and events atomically. Updates to exis
 lessons use their individual PATCH endpoints. No model training is performed.
 
 Browser: /projects/{projectId}/lessons and individual/index README.md views.
-Notifications: /notifications, optionally ?projectId=PROJECT; filter and page
+Notifications: /notifications requires selecting a project (or ?projectId=PROJECT); filter and page
 through numbered updates, search the current page, or select Recent updates.
 API feeds also support lessonId for an individual entry's changes. These views
 remain read-oriented; agents update through REST/MCP.
@@ -841,19 +868,27 @@ All writes accept actor. PATCH accepts expectedRevision; stale revisions return
 
 ## Notifications and messages
 
-GET /api/v1/notifications/since/0?limit=100&wait=0
+GET /api/v1/projects/PROJECT/notifications/since/0?limit=100&wait=0
 
 Returns notifications oldest first, nextCursor, latestCursor, hasMore.
 Continue using nextCursor, never latestCursor while hasMore is true. since is
-exclusive. Filters: projectId, taskId, actor, recipient, kind, knowledgeSlug.
+exclusive. The path fixes project scope; filters: taskId, actor, recipient, kind,
+knowledgeSlug, lessonId.
 Recipient filters include broadcasts. limit: 1..500; wait: 0..30 seconds.
-GET /api/v1/notifications also accepts since. Cursors survive service restarts;
+GET /api/v1/projects/PROJECT/notifications also accepts since. The former global
+/api/v1/notifications endpoints are removed (404). Project IDs are required in MCP
+list_notifications and post_message. Never consume another project's updates.
+The browser /notifications page requires selecting one project. Cursors survive service restarts;
 a cursor ahead of this database returns 409 (reload state and restart at zero).
 
-POST /api/v1/notifications with {"actor":"builder","projectId":"PROJECT",
+POST /api/v1/projects/PROJECT/notifications with {"actor":"builder",
 "taskId":"TASK","recipient":"reviewer","message":"Ready for review"}.
-Project, task and recipient are optional. These are public routing labels.
+Project is required in the path; task and recipient are optional routing labels.
 SSE: /events?since=0&projectId=PROJECT; reconnect with Last-Event-ID.
+Browser overview/attention streams explicitly use scope=all. since=tail starts
+at the current high-water mark without replaying history.
+Local history clearing: brainiac clear-notifications --data PATH. No API tool is
+provided; entity state and increasing sequence numbers remain intact.
 
 ## Shared knowledge
 
@@ -908,7 +943,7 @@ MCP. For scripted use, pass --harness NAMES with --mcp or --no-mcp. Skill packag
       -H 'Content-Type: application/json' \
       -d '{"percent":40,"status":"active","actor":"builder","next":"Run acceptance checks"}'
 
-One instance owns the SQLite volume. Notifications are durable and unpruned.
+One instance owns the SQLite volume. Notifications are durable and retained unless explicitly cleared locally.
 No authentication or HTTPS in v1. IP_ALLOWLIST defaults to empty (no client IPs
 allowed). Requests whose actual socket destination is in 127.0.0.0/24 bypass it.
 Other destinations require a matching socket peer IP or IPv4/IPv6 CIDR in the

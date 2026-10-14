@@ -86,7 +86,11 @@ Current user instructions take precedence over stored lessons. Add new `lessons`
 in the next meaningful work report, with externalKey for retry deduplication;
 revise/supersede existing entries using expectedRevision. Do not log each action
 or invent lasting preferences. Users review project lessons and the global
-`/notifications` page. The Python fallback remains a progress board; do not
+`/notifications` page after selecting a project. Read collaboration updates with
+`list_notifications(projectId=PROJECT, since=CURSOR)` or GET
+`.../projects/PROJECT/notifications/since/CURSOR`, and post messages within the
+same project. Retain a cursor per project/filter; ignore unrelated project work.
+The former global `/api/v1/notifications` endpoint is removed. The Python fallback remains a progress board; do not
 pretend it stores durable project lessons.
 
 Ask questions and receive answers through the host's native input tool or chat.

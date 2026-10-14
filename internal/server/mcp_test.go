@@ -103,8 +103,22 @@ func exerciseMCP(t *testing.T, transport mcp.Transport) {
 	}
 	invoke("report_agent_activity", tracker.Doc{"projectId": pid, "agent": "builder", "active": false})
 	invoke("create_knowledge", tracker.Doc{"slug": "mcp-tips", "title": "Tips", "body": "Reusable", "tags": []string{"mcp"}})
+	invoke("post_message", tracker.Doc{"projectId": pid, "message": "Project-scoped handoff", "recipient": "builder"})
+	other := invoke("create_project", tracker.Doc{"name": "Weekend"})["result"].(map[string]any)["id"].(string)
+	invoke("post_message", tracker.Doc{"projectId": other, "message": "Foreign handoff", "recipient": "builder"})
+	updates := invoke("list_notifications", tracker.Doc{"projectId": pid, "recipient": "builder", "limit": 100})["result"].(map[string]any)["notifications"].([]any)
+	for _, item := range updates {
+		if item.(map[string]any)["projectId"] != pid {
+			t.Fatal("MCP exposed foreign notifications")
+		}
+	}
+	missing, e := session.CallTool(ctx, &mcp.CallToolParams{Name: "list_notifications", Arguments: tracker.Doc{"since": 0}})
+	if e == nil && !missing.IsError {
+		t.Fatal("MCP accepted an unscoped notification read")
+	}
+
 	invoke("get_knowledge_revision", tracker.Doc{"slug": "mcp-tips", "revision": 1})
-	invoke("list_notifications", tracker.Doc{"since": 0, "limit": 2})
+	invoke("list_notifications", tracker.Doc{"projectId": pid, "since": 0, "limit": 2})
 	resource, e := session.ReadResource(ctx, &mcp.ReadResourceParams{URI: "brainiac://projects/" + pid + "/tasks/" + tid + "/README.md"})
 	if e != nil || len(resource.Contents) != 1 || !strings.Contains(resource.Contents[0].Text, "MCP handoff") {
 		t.Fatal("task resource", e)

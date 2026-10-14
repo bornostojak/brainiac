@@ -228,11 +228,18 @@ async function api(method, path, payload) {
 
     // Full-history review uses the same numbered feed and keeps filters on pages.
     for (let start = 0; start < 101; start += 20) {
-      await Promise.all(Array.from({ length: Math.min(20, 101 - start) }, (_, i) => api('POST', '/notifications', {
+      await Promise.all(Array.from({ length: Math.min(20, 101 - start) }, (_, i) => api('POST', `/projects/${project.id}/notifications`, {
         projectId: project.id, actor: 'browser-review-feed', message: 'Review entry ' + (start + i),
       })));
     }
-    await api('POST', '/notifications', { projectId: other.id, actor: 'browser-review-feed', message: 'Foreign review entry' });
+    await api('POST', `/projects/${other.id}/notifications`, { projectId: other.id, actor: 'browser-review-feed', message: 'Foreign review entry' });
+    const globalResponse = await fetch(base + '/api/v1/notifications');
+    assert.equal(globalResponse.status, 404);
+    await page.goto(base + '/notifications');
+    await page.waitForFunction(() => document.querySelector('#review-count').textContent.includes('Choose a project'));
+    assert.equal(await page.locator('.notification-row').count(), 0);
+    await page.getByLabel('Project', { exact: true }).selectOption(project.id);
+    await page.waitForSelector('.notification-row');
     await page.goto(base + '/notifications?projectId=' + project.id);
     await page.waitForFunction(() => document.querySelector('#connection').textContent.includes('Live'));
     await page.getByLabel('Agent', { exact: true }).fill('browser-review-feed');
@@ -245,7 +252,7 @@ async function api(method, path, payload) {
     await page.waitForFunction(() => document.querySelectorAll('.notification-row').length === 1 && document.querySelector('#review-next').disabled);
     const last = Number(await page.locator('.notification-row').getAttribute('data-key'));
     assert.ok(last > numbers.at(-1));
-    await api('POST', '/notifications', { projectId: project.id, actor: 'browser-review-feed', message: 'Live review update' });
+    await api('POST', `/projects/${project.id}/notifications`, { projectId: project.id, actor: 'browser-review-feed', message: 'Live review update' });
     await page.waitForFunction(() => document.querySelectorAll('.notification-row').length === 2);
     assert.ok((await page.locator('#review-list').innerText()).includes('Live review update'));
     await page.getByRole('button', { name: 'Previous page', exact: true }).click();
