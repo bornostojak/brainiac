@@ -270,3 +270,30 @@ The header Notifications link on project, task, README and lessons views now
 includes the current project ID. Browser checks verified that project, README
 and lessons links open the notification feed with that project already selected.
 Existing Go acceptance tests passed. No skill or API behavior changed.
+
+## Vendor icons, clipboard and harness identity (1.6.0)
+
+- The compact per-agent table replaces vendor text with locally bundled vendor
+  icons; hover names and keyboard-accessible buttons copy the vendor name.
+  OpenAI, Anthropic, Z.ai and Google assets were checked, with source/license
+  notices retained. Other/unknown providers use a local initial badge. Browsers
+  make no external icon requests.
+- Chromium verified vendor names, icon loading, Clipboard API copy, selection-copy
+  fallback with the Clipboard API unavailable, copy feedback, the separate Harness
+  column, retained identity through live updates and mobile horizontal scrolling.
+  Existing progress, limits, subtasks, lessons and project notifications passed.
+- Harness metadata is independently reported and bounded in activity/usage REST
+  and MCP schemas. Persistence, omitted-field retention, whitespace handling,
+  invalid-value rollback and project-specific precedence over shared usage passed.
+  Two projects using the same agent ID retain their different harnesses; vendors
+  are not inferred from host applications. Old records remain valid and unknown.
+- Go tests, race detection, vet, Python checks, both skill validators and the
+  unchanged Python fallback self-test passed. HTTP/stdio MCP checks also passed
+  against the deployed service and rebuilt local bridge.
+- Compose is healthy on port 3011. Existing project/task IDs, knowledge revisions
+  and private listener/allowlist settings were preserved. Both Brainiac packages
+  were refreshed in Codex and OpenCode (four installed packages); served, tracked
+  and installed content matches, including the existing saved local origins.
+  Guidance reports actual harness at start/change in existing work batches.
+- Tracked/new content passed the private-data scan. Requested Git attribution
+  is retained; synthetic browser records remained in the disposable instance.
