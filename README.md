@@ -131,29 +131,31 @@ Harness references: [OpenCode skills](https://dev.opencode.ai/v2/docs/skills/),
 
 ### Input popups and independent service instructions
 
-Agents can request a user decision with MCP `request_input` or POST
-`/api/v1/input-requests` (projectId, agent, title, message, optional taskId).
-The host app's native question tool or chat remains the primary input channel.
-Brainiac mirrors the question as an additional alert; its tools do not open native
-Desktop dialogs. Agents must also ask in the host app, preserving its normal
-input, permission and approval paths. If the native question tool blocks, create
-the mirror first and then ask natively. Resolve the mirror from the real native
-answer so the user need not answer twice. Brainiac alone is appropriate only
-when no host input channel exists or the user explicitly chooses it; browser
-responses never grant required native execution permissions.
-Alternatively include `inputRequest` in a blocker `report_work` batch to report
-the blocker and ask the question in one call. An optional `externalKey` deduplicates
-retries per project/agent, including already answered questions; use a new key for
-a new decision.
+Brainiac sends a heads-up: **“Your attention is needed · Project · Agent.
+Return to the originating conversation to reply.”** The actual question and
+answer stay in the agent's native chat or input tool. Brainiac has no reply form
+and never replaces native input, permission or approval prompts.
 
-Every open Brainiac browser page receives a compact popup, regardless of the
-project being viewed, including task, knowledge and Markdown views. Open requests
-survive reloads and reconnects; polling handles disconnected streams. Dismiss
-hides a popup in that tab, and the header's input count reopens it. Sending a
-response resolves the request in all tabs and emits `input.resolved` to its agent.
-Responses require `expectedRevision`; simultaneous answers cannot overwrite one
-another. Fetch the request or list with `status=resolved/all` to read answers.
-Agents must not treat a dismissal as an answer or invent approval.
+MCP `request_input` or POST `/api/v1/input-requests` accepts projectId, agent and
+optional taskId, source (harness name), sourceUrl (known HTTP(S) conversation
+link), externalKey. Alternatively include this metadata as `inputRequest` in a
+blocker `report_work` batch. Never send the question or answer. When the native
+question tool blocks, post the notice first, then ask there immediately. A stable
+externalKey deduplicates retries per project/agent, including closed notices;
+use a new key for a new request for attention.
+
+Every Brainiac page receives compact notices across projects, including task,
+knowledge and Markdown views. Notices survive reload/reconnect with polling as
+fallback. Dismiss hides a notice in that tab; the header count reopens it. After
+the question is handled in the original chat, the agent calls MCP
+`close_input_request` or PATCH `/api/v1/input-requests/{id}` with status=resolved
+and expectedRevision; status=cancelled withdraws a notice. Closure removes the
+notice across tabs and emits a generic numbered event. Dismissal and closure are
+bookkeeping, never an answer or approval. Closed metadata can be listed with
+status=resolved/all. The old `answer_input_request` tool is a deprecated closure
+alias and accepts no response field. Older stored question/answer content is
+excluded from public notice reads and historical input events; new writes
+silently discard deprecated title/message fields from legacy clients.
 
 The **Desktop alerts** button optionally enables operating-system browser
 notifications. It requests permission only on a user click. Browser support and

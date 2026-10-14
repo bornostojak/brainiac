@@ -77,14 +77,16 @@ Workers maintain their own `workingOn` plus actual vendor/model. Include measure
 usage values and limits when available; unknown values remain unknown. The header
 and compact per-agent table update live; no additional per-action call is needed.
 
-Ask real questions through the host's native input tool or chat. Brainiac's
-`inputRequest` in a blocker report or `request_input` is a companion alert, not
-a replacement for native input/permission/approval prompts. Posting it does not
-prompt the host: ask there too. When the native question tool blocks, post the
-mirror first, then ask natively; resolve it from the actual native answer without
-requiring a second answer. Use Brainiac alone only without a host input channel
-or when explicitly chosen by the user. Dismissal is not approval, and Brainiac
-cannot replace required native permissions. Check `list_instructions` once at session start, then handle pending
+Ask questions and receive answers through the host's native input tool or chat.
+Brainiac's `inputRequest` in a blocker report or `request_input` only says the user
+is needed in the originating conversation. Send project/agent/task metadata,
+optional source (actual harness name) and sourceUrl (known HTTP(S) conversation
+link), plus externalKey for retry deduplication. Never send question/answer content.
+If the native question tool blocks, post the notice first and then ask natively.
+After the question is handled there, `close_input_request` with status=resolved
+and expectedRevision closes the notice without a response; cancel withdrawn
+notices. Dismissal/closure is not input or approval. Preserve native prompts and
+permission dialogs. Check `list_instructions` once at session start, then handle pending
 `instructions` returned by normal work/activity reports. Re-read changed skills
 with `get_skill` and acknowledge the exact instruction revision after handling
 it. These instructions have no numbered-feed cursor and need no polling loop.

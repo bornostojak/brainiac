@@ -66,16 +66,29 @@ func TestAttentionRoutesAndSkillSynchronization(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	data, _ := json.Marshal(tracker.Doc{"projectId": p["id"], "agent": "builder", "title": "Decision", "message": "Pick an option"})
+	data, _ := json.Marshal(tracker.Doc{"projectId": p["id"], "agent": "builder", "source": "Codex Desktop", "sourceUrl": "https://example.com/chat/1"})
 	code, body = call(t, s, "POST", "/api/v1/input-requests", string(data), nil)
 	if code != 201 {
 		t.Fatal(code, string(body))
 	}
 	var question tracker.Doc
 	json.Unmarshal(body, &question)
-	code, _ = call(t, s, "PATCH", "/api/v1/input-requests/"+tracker.Text(question, "id"), `{"status":"resolved","response":"Yes"}`, nil)
+	code, _ = call(t, s, "PATCH", "/api/v1/input-requests/"+tracker.Text(question, "id"), `{"status":"resolved"}`, nil)
 	if code != 400 {
-		t.Fatal("unguarded answer accepted", code)
+		t.Fatal("unguarded closure accepted", code)
+	}
+	code, _ = call(t, s, "PATCH", "/api/v1/input-requests/"+tracker.Text(question, "id"), `{"status":"resolved","response":"Yes","expectedRevision":1}`, nil)
+	if code != 400 {
+		t.Fatal("answer content accepted", code)
+	}
+	code, body = call(t, s, "PATCH", "/api/v1/input-requests/"+tracker.Text(question, "id"), `{"status":"resolved","expectedRevision":1}`, nil)
+	if code != 200 {
+		t.Fatal(code, string(body))
+	}
+	var closed tracker.Doc
+	json.Unmarshal(body, &closed)
+	if tracker.Text(closed, "status") != "resolved" || closed["response"] != nil {
+		t.Fatal(closed)
 	}
 	code, _ = call(t, s, "GET", "/api/v1/input-requests?status=invalid", "", nil)
 	if code != 400 {

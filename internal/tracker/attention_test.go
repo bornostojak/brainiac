@@ -2,12 +2,15 @@ package tracker
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
 
-func TestInputRequestsBatchRetriesAndAnswers(t *testing.T) {
+func TestInputNoticesBatchRetriesAndClosure(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 	pid := Text(project(t, s, "Questions"), "id")
@@ -16,7 +19,7 @@ func TestInputRequestsBatchRetriesAndAnswers(t *testing.T) {
 	task = must(t, task, e)
 	foreign, e := s.SaveTask(ctx, other, "", Doc{"name": "Foreign"})
 	foreign = must(t, foreign, e)
-	report := Doc{"agent": "builder", "taskUpdates": []any{map[string]any{"taskId": Text(task, "id"), "status": "blocked"}}, "inputRequest": map[string]any{"title": "Choose target", "message": "Which output format?", "taskId": Text(task, "id"), "externalKey": "choose-format"}}
+	report := Doc{"agent": "builder", "taskUpdates": []any{map[string]any{"taskId": Text(task, "id"), "status": "blocked"}}, "inputRequest": map[string]any{"source": "Codex Desktop", "sourceUrl": "https://example.com/chat/1", "taskId": Text(task, "id"), "externalKey": "choose-format"}}
 	d, e := s.ReportWork(ctx, pid, report)
 	d = must(t, d, e)
 	request := d["inputRequest"].(Doc)
@@ -41,7 +44,7 @@ func TestInputRequestsBatchRetriesAndAnswers(t *testing.T) {
 	if questions != 1 {
 		t.Fatal("duplicate pop-up events", questions)
 	}
-	report["inputRequest"] = map[string]any{"title": "Bad", "message": "Cross project", "taskId": Text(foreign, "id")}
+	report["inputRequest"] = map[string]any{"taskId": Text(foreign, "id")}
 	if _, e = s.ReportWork(ctx, pid, report); e == nil {
 		t.Fatal("foreign task accepted")
 	}
@@ -49,20 +52,20 @@ func TestInputRequestsBatchRetriesAndAnswers(t *testing.T) {
 	if feed.LatestCursor != after.LatestCursor {
 		t.Fatal("bad batch committed events")
 	}
-	if _, e = s.AnswerInput(ctx, Text(request, "id"), Doc{"status": "resolved", "response": "Markdown", "expectedRevision": float64(2)}); e == nil {
+	if _, e = s.CloseInput(ctx, Text(request, "id"), Doc{"status": "resolved", "expectedRevision": float64(2)}); e == nil {
 		t.Fatal("stale revision accepted")
 	}
-	answer, e := s.AnswerInput(ctx, Text(request, "id"), Doc{"status": "resolved", "response": "Markdown", "expectedRevision": float64(1), "actor": "user"})
+	answer, e := s.CloseInput(ctx, Text(request, "id"), Doc{"status": "resolved", "expectedRevision": float64(1), "actor": "user"})
 	answer = must(t, answer, e)
-	if Text(answer, "response") != "Markdown" {
+	if Text(answer, "status") != "resolved" || answer["response"] != nil {
 		t.Fatal(answer)
 	}
-	if _, e = s.AnswerInput(ctx, Text(request, "id"), Doc{"status": "resolved", "response": "Overwrite", "expectedRevision": float64(2)}); e == nil {
+	if _, e = s.CloseInput(ctx, Text(request, "id"), Doc{"status": "resolved", "expectedRevision": float64(2)}); e == nil {
 		t.Fatal("closed question overwritten")
 	}
 	feed, _ = s.Feed(ctx, FeedOptions{Since: after.LatestCursor, Limit: 100, Recipient: "builder"})
 	if len(feed.Notifications) != 1 || Text(feed.Notifications[0], "kind") != "input.resolved" {
-		t.Fatal("answer did not reach requesting agent", feed)
+		t.Fatal("closure did not reach requesting agent", feed)
 	}
 }
 
@@ -132,7 +135,7 @@ func TestInstructionAndInputPersistenceAndSkillChanges(t *testing.T) {
 		t.Fatal(e)
 	}
 	pid := Text(project(t, s, "Persistent"), "id")
-	r, e := s.RequestInput(ctx, Doc{"projectId": pid, "agent": "builder", "title": "Question", "message": "Choose an option"})
+	r, e := s.RequestInput(ctx, Doc{"projectId": pid, "agent": "builder", "source": "Claude Code"})
 	r = must(t, r, e)
 	key := "brainiac.skill.progress-tracker"
 	if _, e = s.SyncSkillInstruction(ctx, "progress-tracker", "fingerprint-a"); e != nil {
@@ -167,4 +170,82 @@ func TestInstructionAndInputPersistenceAndSkillChanges(t *testing.T) {
 	if Text(r, "status") != "open" {
 		t.Fatal("pending input lost on restart")
 	}
+}
+
+// Upgrades must not re-publish old question/answer bodies in REST, MCP, SSE or
+// generated READMEs, while preserving stored history and its numbered cursors.
+func TestAttentionMetadataAndLegacyProjection(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	pid := Text(project(t, s, "Attention"), "id")
+	payload := Doc{"projectId": pid, "agent": "builder", "title": "private question", "message": "private question body", "externalKey": "legacy-client", "source": "Codex Desktop"}
+	notice, e := s.RequestInput(ctx, payload)
+	notice = must(t, notice, e)
+	check := func(d Doc) {
+		t.Helper()
+		for _, key := range []string{"title", "message", "response"} {
+			if _, ok := d[key]; ok {
+				t.Fatalf("notice leaked %s: %v", key, d)
+			}
+		}
+	}
+	check(notice)
+	raw, e := get(ctx, s.db, "input", Text(notice, "id"))
+	check(must(t, raw, e))
+	if _, e = s.CloseInput(ctx, Text(notice, "id"), Doc{"status": "resolved", "expectedRevision": float64(1), "response": "private answer"}); e == nil {
+		t.Fatal("accepted answer content")
+	}
+	for _, link := range []string{"javascript:alert(1)", "data:text/plain,question", "/relative", "https://user:pass@example.com/chat"} {
+		badPayload := clone(payload)
+		badPayload["sourceUrl"] = link
+		if _, e = s.RequestInput(ctx, badPayload); e == nil {
+			t.Fatal("unsafe source URL accepted", link)
+		}
+	}
+	// Simulate a pre-upgrade record and event, retaining the original revision.
+	legacy := clone(notice)
+	legacy["title"] = "old private question"
+	legacy["message"] = "old private body"
+	legacy["response"] = "old private answer"
+	var number int64
+	_, e = s.write(ctx, func(tx *sql.Tx) (Doc, error) {
+		if e := put(ctx, tx, "input", Text(legacy, "id"), pid, legacy); e != nil {
+			return nil, e
+		}
+		var err error
+		number, err = s.event(ctx, tx, "input.required", "builder", pid, "", "", "old private question: old private body", "builder")
+		return legacy, err
+	})
+	if e != nil {
+		t.Fatal(e)
+	}
+	d, e := s.Get(ctx, "input", Text(notice, "id"))
+	check(must(t, d, e))
+	items, e := s.List(ctx, "input")
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, d := range items {
+		check(d)
+	}
+	retry, e := s.RequestInput(ctx, payload)
+	check(must(t, retry, e))
+	batch, e := s.ReportWork(ctx, pid, Doc{"agent": "builder", "inputRequest": map[string]any{"externalKey": "legacy-client"}})
+	batch = must(t, batch, e)
+	check(batch["inputRequest"].(Doc))
+	feed, e := s.Feed(ctx, FeedOptions{Since: number - 1, Limit: 100, Kind: "input.required"})
+	if e != nil || len(feed.Notifications) != 1 || Num(feed.Notifications[0], "number") != float64(number) {
+		t.Fatal(feed, e)
+	}
+	encoded, _ := json.Marshal(feed)
+	if strings.Contains(string(encoded), "private") {
+		t.Fatal("historical feed leaked body", string(encoded))
+	}
+	raw, e = get(ctx, s.db, "input", Text(notice, "id"))
+	raw = must(t, raw, e)
+	if Text(raw, "response") != "old private answer" {
+		t.Fatal("read projection changed stored history")
+	}
+	closed, e := s.CloseInput(ctx, Text(notice, "id"), Doc{"status": "resolved", "expectedRevision": float64(1), "actor": "builder"})
+	check(must(t, closed, e))
 }

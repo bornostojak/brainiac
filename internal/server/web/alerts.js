@@ -2,11 +2,11 @@
 (() => {
   const node = (tag, text, cls) => { const n = document.createElement(tag); if (text !== undefined) n.textContent = text; if (cls) n.className = cls; return n; };
   const host = node('aside', undefined, 'input-popups');
-  host.setAttribute('aria-label', 'User input requests across projects');
+  host.setAttribute('aria-label', 'Attention notices across projects');
   host.setAttribute('aria-live', 'polite');
   document.body.append(host);
   const nav = document.querySelector('header nav');
-  const pendingButton = node('button', 'Input requests', 'alert-button');
+  const pendingButton = node('button', 'Attention notices', 'alert-button');
   pendingButton.hidden = true;
   const desktopButton = node('button', 'Desktop alerts', 'alert-button');
   desktopButton.hidden = !('Notification' in window) || !window.isSecureContext;
@@ -16,16 +16,23 @@
   let requests = [], dismissed = load('brainiac.dismissedInputs'), notified = load('brainiac.notifiedInputs');
   let timer, refreshing, rerun = false, stream, live = false;
   const cards = new Map();
+  const conversation = request => {
+    try {
+      const url = new URL(request.sourceUrl);
+      if (['http:', 'https:'].includes(url.protocol) && !url.username && !url.password) return url.href;
+    } catch {}
+    return null;
+  };
   const target = request => '/projects/' + encodeURIComponent(request.projectId) + (request.taskId ? '/tasks/' + encodeURIComponent(request.taskId) : '');
 
   function notify(request) {
     const key = request.id + ':' + request.revision;
     if (desktopButton.hidden || Notification.permission !== 'granted' || notified[key]) return;
     try {
-      const notice = new Notification('Input required: ' + request.title, {
-        body: request.projectName + ' · ' + request.message, tag: 'brainiac-input-' + request.id,
+      const notice = new Notification('Your attention is needed', {
+        body: request.agent + ' needs you in ' + request.projectName + '. Return to ' + (request.source || 'the originating conversation') + '.', tag: 'brainiac-input-' + request.id,
       });
-      notice.onclick = () => { window.focus(); location.href = target(request); notice.close(); };
+      notice.onclick = () => { window.focus(); location.href = conversation(request) || target(request); notice.close(); };
       notified[key] = true;
       const keys = Object.keys(notified);
       if (keys.length > 200) delete notified[keys[0]];
@@ -38,45 +45,23 @@
     box.setAttribute('role', 'alert');
     box.dataset.requestId = request.id;
     const head = node('div', undefined, 'line');
-    head.append(node('strong', 'Input required · ' + request.title));
+    head.append(node('strong', 'Your attention is needed'));
     const dismiss = node('button', 'Dismiss', 'alert-button');
     dismiss.type = 'button';
     dismiss.onclick = () => { dismissed[request.id] = request.revision; save('brainiac.dismissedInputs', dismissed); render(); };
     head.append(dismiss);
     const context = node('a', request.projectName + ' · ' + request.agent);
     context.href = target(request);
-    const message = node('p', request.message);
-    const form = node('form');
-    const answer = node('textarea');
-    answer.maxLength = 8000;
-    answer.required = true;
-    answer.placeholder = 'Your response…';
-    answer.setAttribute('aria-label', 'Response to ' + request.title);
-    const send = node('button', 'Send response');
-    send.type = 'submit';
-    const error = node('p', '', 'input-error');
-    error.setAttribute('role', 'status');
-    form.append(answer, send, error);
-    form.onsubmit = async event => {
-      event.preventDefault();
-      if (!answer.value.trim()) return;
-      send.disabled = true;
-      error.textContent = '';
-      try {
-        const response = await fetch('/api/v1/input-requests/' + encodeURIComponent(request.id), {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'resolved', response: answer.value, expectedRevision: request.revision, actor: 'browser-user' }),
-        });
-        if (!response.ok) {
-          const body = await response.json();
-          if (response.status === 409) await refresh();
-          throw Error(body.error?.message || 'Unable to send response');
-        }
-        await refresh();
-      } catch (e) { error.textContent = e.message; }
-      finally { send.disabled = false; }
-    };
-    box.append(head, context, message, form);
+    const message = node('p', 'Return to ' + (request.source || 'the originating conversation') + ' to reply.');
+    box.append(head, context, message);
+    const sourceUrl = conversation(request);
+    if (sourceUrl) {
+      const link = node('a', 'Open conversation');
+      link.href = sourceUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      box.append(link);
+    }
     return box;
   }
 
@@ -89,7 +74,7 @@
     }
     for (const [id, box] of cards) if (!visible.has(id)) { box.remove(); cards.delete(id); }
     pendingButton.hidden = requests.length === 0;
-    pendingButton.textContent = requests.length + ' input request' + (requests.length === 1 ? '' : 's');
+    pendingButton.textContent = requests.length + ' attention notice' + (requests.length === 1 ? '' : 's');
     if (!desktopButton.hidden) {
       desktopButton.textContent = Notification.permission === 'granted' ? 'Desktop alerts on' : Notification.permission === 'denied' ? 'Desktop alerts blocked' : 'Desktop alerts';
       desktopButton.disabled = Notification.permission !== 'default';

@@ -7,7 +7,7 @@ import "strings"
 func OpenAPI() map[string]any {
 	str := func() any { return map[string]any{"type": "string"} }
 	props := map[string]any{}
-	for _, k := range strings.Fields("name description readme externalKey lifecycle activity parentId agent detail next verification actor slug title summary body sourceProjectId sourceTaskId sourceAgent projectId taskId message recipient provider model sessionId resetsAt observedAt source key kind response") {
+	for _, k := range strings.Fields("name description readme externalKey lifecycle activity parentId agent detail next verification actor slug title summary body sourceProjectId sourceTaskId sourceAgent projectId taskId message recipient provider model sessionId resetsAt observedAt source sourceUrl key kind") {
 		props[k] = str()
 	}
 	props["percent"] = map[string]any{"type": "number", "minimum": 0, "maximum": 100}
@@ -42,10 +42,10 @@ func OpenAPI() map[string]any {
 	schema("KnowledgeCreate", "slug title summary tags body sourceProjectId sourceTaskId sourceAgent actor", "slug title body")
 	schema("KnowledgePatch", "title summary tags body sourceProjectId sourceTaskId sourceAgent actor expectedRevision", "expectedRevision")
 	schema("Usage", "provider model sessionId source observedAt tokenBudget tokensUsed tokensRemaining contextTokens contextLimit accountRemainingPercent resetsAt actor expectedRevision", "")
-	schema("InputRequest", "projectId taskId agent title message externalKey actor", "projectId agent title message")
-	schema("InputAnswer", "response actor expectedRevision", "expectedRevision")
-	schemas["InputAnswer"].(map[string]any)["properties"].(map[string]any)["status"] = map[string]any{"type": "string", "enum": []string{"resolved", "cancelled"}}
-	schemas["InputAnswer"].(map[string]any)["required"] = []string{"status", "expectedRevision"}
+	schema("InputRequest", "projectId taskId agent source sourceUrl externalKey actor", "projectId agent")
+	schema("InputClose", "actor expectedRevision", "expectedRevision")
+	schemas["InputClose"].(map[string]any)["properties"].(map[string]any)["status"] = map[string]any{"type": "string", "enum": []string{"resolved", "cancelled"}}
+	schemas["InputClose"].(map[string]any)["required"] = []string{"status", "expectedRevision"}
 	schema("InstructionCreate", "key title message kind recipient projectId active actor", "key title message")
 	schema("InstructionPatch", "title message kind recipient projectId active actor expectedRevision", "expectedRevision")
 	for _, name := range []string{"InstructionCreate", "InstructionPatch"} {
@@ -67,7 +67,7 @@ func OpenAPI() map[string]any {
 	reportProps["message"] = str()
 	// MCP tool schemas are standalone, so embed the usage schema rather than a document-local reference.
 	reportProps["usage"] = schemas["Usage"]
-	schema("BatchedInputRequest", "title message taskId externalKey", "title message")
+	schema("BatchedInputRequest", "source sourceUrl taskId externalKey", "")
 	reportProps["inputRequest"] = schemas["BatchedInputRequest"]
 	activityProps := map[string]any{}
 	for _, key := range strings.Fields("agent provider model workingOn workSummary active tasks actor expectedRevision") {
@@ -151,10 +151,10 @@ func OpenAPI() map[string]any {
 	add("/agents", "get", "Reported agent usage", "")
 	add("/agents/{agent}/usage", "get", "Fetch usage", "")
 	add("/agents/{agent}/usage", "put", "Replace usage observation", "Usage")
-	add("/input-requests", "get", "List unresolved input across all projects by default", "")
-	add("/input-requests", "post", "Ask for user input and alert every open browser view; externalKey deduplicates retries per project/agent", "InputRequest")
-	add("/input-requests/{requestId}", "get", "Read request and user response", "")
-	add("/input-requests/{requestId}", "patch", "Resolve with response or cancel using expectedRevision", "InputAnswer")
+	add("/input-requests", "get", "List open attention notices across projects by default, without questions or answers", "")
+	add("/input-requests", "post", "Send an attention-only notice across browser views; ask the actual question in the originating chat. externalKey deduplicates retries per project/agent", "InputRequest")
+	add("/input-requests/{requestId}", "get", "Read attention notice metadata, without question or answer content", "")
+	add("/input-requests/{requestId}", "patch", "Close an attention notice after native input is handled, or cancel; requires expectedRevision, accepts no answer", "InputClose")
 	add("/instructions", "get", "Pending independent instructions for an agent, including global and matching project instructions", "")
 	add("/instructions", "post", "Publish independent agent instructions; no numbered notification is created", "InstructionCreate")
 	add("/instructions/{key}", "get", "Read instruction and current revision", "")

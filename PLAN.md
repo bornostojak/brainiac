@@ -45,8 +45,8 @@ atomically; guide MCP/skills to report meaningful events or quiet 10–15 minute
 check-ins rather than individual commands/edits. Refresh relevant installations.
 
 Cross-project attention: persistent user input requests, globally delivered
-browser popups with optional desktop permission, safe inline answers and revision
-conflicts. Independent service instructions use stable keys, per-agent revision
+browser popups with optional desktop permission and revision-guarded notice
+closure. Questions and answers stay in the originating chat. Independent service instructions use stable keys, per-agent revision
 receipts and embedded-skill fingerprints; return pending guidance with normal
 reports to avoid extra polling. Expose equivalent REST/MCP tools and skill resources.
 
@@ -56,3 +56,11 @@ Replace grouped vendor rows with one compact row per agent, explicit vendor/mode
 columns and used/limit bars with remaining values. Keep unknown/stale readings
 truthful, retain all columns with mobile horizontal scrolling, update installed
 skills/deployments and publish the versioned Git release after validation.
+
+Attention-only clarification: Brainiac announces that an agent needs the user
+in the originating conversation. Keep the actual question and answer in native
+host input/chat; remove browser reply controls. Notices contain project/agent/
+task and optional harness/conversation metadata, with revision-guarded closure
+after native input is handled. Exclude legacy question/answer content from
+public notices and historical input events without deleting stored history.
+Update REST/MCP contracts, both skills and the live deployment together.

@@ -248,7 +248,7 @@ func (s *Store) ReportWork(ctx context.Context, pid string, payload Doc) (Doc, e
 				return nil, bad("inputRequest must be an object")
 			}
 			request := clone(Doc(input))
-			if err = fields(request, "title message taskId externalKey"); err != nil {
+			if err = fields(request, "source sourceUrl title message taskId externalKey"); err != nil {
 				return nil, err
 			}
 			request["projectId"], request["agent"], request["actor"] = pid, agent, actor

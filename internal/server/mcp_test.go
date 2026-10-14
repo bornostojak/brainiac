@@ -61,9 +61,14 @@ func exerciseMCP(t *testing.T, transport mcp.Transport) {
 	}
 	invoke("acknowledge_instruction", tracker.Doc{"key": "mcp-guidance", "agent": "builder", "revision": 1})
 	invoke("get_skill", tracker.Doc{"name": "progress-tracker"})
-	question := invoke("request_input", tracker.Doc{"projectId": pid, "taskId": tid, "agent": "builder", "title": "Choose format", "message": "What format?"})["result"].(map[string]any)
-	invoke("answer_input_request", tracker.Doc{"requestId": question["id"], "status": "resolved", "response": "Markdown", "expectedRevision": 1})
-	invoke("get_input_request", tracker.Doc{"requestId": question["id"]})
+	question := invoke("request_input", tracker.Doc{"projectId": pid, "taskId": tid, "agent": "builder", "source": "Codex Desktop"})["result"].(map[string]any)
+	invoke("close_input_request", tracker.Doc{"requestId": question["id"], "status": "resolved", "expectedRevision": 1})
+	closed := invoke("get_input_request", tracker.Doc{"requestId": question["id"]})["result"].(map[string]any)
+	if closed["status"] != "resolved" || closed["response"] != nil || closed["message"] != nil {
+		t.Fatal("MCP notice content", closed)
+	}
+	legacy := invoke("request_input", tracker.Doc{"projectId": pid, "agent": "builder"})["result"].(map[string]any)
+	invoke("answer_input_request", tracker.Doc{"requestId": legacy["id"], "status": "cancelled", "expectedRevision": 1})
 	invoke("update_task", tracker.Doc{"projectId": pid, "taskId": tid, "percent": 40, "readme": "MCP handoff", "expectedRevision": 1})
 	invoke("report_agent_usage", tracker.Doc{"agent": "builder", "tokensRemaining": 5000, "contextTokens": 2000, "contextLimit": 10000})
 	invoke("report_work", tracker.Doc{"projectId": pid, "agent": "builder", "provider": "OpenAI", "workingOn": "API implementation", "workSummary": "Building validation and checking error handling.", "taskUpdates": []any{map[string]any{"taskId": tid, "percent": 45}}, "usage": map[string]any{"tokensRemaining": 4900}})

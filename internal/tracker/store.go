@@ -149,6 +149,9 @@ func (s *Store) Get(ctx context.Context, kind, id string) (Doc, error) {
 	if err == nil && kind == "presence" {
 		s.decorateActivity(d)
 	}
+	if err == nil && kind == "input" {
+		d = inputNotice(d)
+	}
 	return d, err
 }
 func (s *Store) List(ctx context.Context, kind string) ([]Doc, error) {
@@ -172,6 +175,9 @@ func (s *Store) List(ctx context.Context, kind string) ([]Doc, error) {
 		}
 		if kind == "presence" {
 			s.decorateActivity(d)
+		}
+		if kind == "input" {
+			d = inputNotice(d)
 		}
 		out = append(out, d)
 	}
@@ -680,6 +686,9 @@ func (s *Store) Feed(ctx context.Context, o FeedOptions) (Feed, error) {
 		var d Doc
 		if err = json.Unmarshal(b, &d); err != nil {
 			return f, err
+		}
+		if strings.HasPrefix(Text(d, "kind"), "input.") {
+			d["message"] = attentionMessage(Text(d, "kind"))
 		}
 		d["number"] = n
 		f.Notifications = append(f.Notifications, d)

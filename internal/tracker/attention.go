@@ -5,11 +5,31 @@ import (
 	"database/sql"
 	"encoding/json"
 	"math"
+	"net/url"
 	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
 )
+
+// Input requests are attention notices, never a question or answer channel.
+// Legacy question bodies stay in storage but are excluded from all public reads.
+func inputNotice(d Doc) Doc {
+	out := Doc{}
+	for _, key := range strings.Fields("id status revision projectId projectName taskId agent source sourceUrl externalKey createdAt updatedAt resolvedBy") {
+		if value, ok := d[key]; ok {
+			out[key] = value
+		}
+	}
+	return out
+}
+
+func attentionMessage(kind string) string {
+	if kind == "input.required" {
+		return "Your attention is needed in the originating agent conversation."
+	}
+	return "Attention notice " + strings.TrimPrefix(kind, "input.") + "."
+}
 
 // Input requests are durable state. Their events use the ordinary progress feed,
 // so browser reconnects and agent coordination share the same commit boundary.
@@ -18,14 +38,20 @@ func (s *Store) RequestInput(ctx context.Context, payload Doc) (Doc, error) {
 }
 
 func (s *Store) requestInputTx(ctx context.Context, tx *sql.Tx, payload Doc) (Doc, error) {
-	if err := fields(payload, "projectId taskId agent title message externalKey"); err != nil {
+	if err := fields(payload, "projectId taskId agent source sourceUrl title message externalKey"); err != nil {
 		return nil, err
 	}
-	if err := texts(payload, "projectId agent title message", map[string]int{"projectId": 64, "taskId": 64, "agent": 128, "title": 200, "message": 8000, "externalKey": 128}); err != nil {
+	if err := texts(payload, "projectId agent", map[string]int{"source": 128, "sourceUrl": 2048, "projectId": 64, "taskId": 64, "agent": 128, "title": 200, "message": 8000, "externalKey": 128}); err != nil {
 		return nil, err
 	}
 	if strings.Contains(Text(payload, "agent"), "/") {
 		return nil, bad("agent cannot contain slashes")
+	}
+	if link := Text(payload, "sourceUrl"); link != "" {
+		u, err := url.Parse(link)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil {
+			return nil, bad("sourceUrl must be an absolute HTTP(S) conversation URL without credentials")
+		}
 	}
 	pid := Text(payload, "projectId")
 	p, err := get(ctx, tx, "project", pid)
@@ -49,14 +75,14 @@ func (s *Store) requestInputTx(ctx context.Context, tx *sql.Tx, payload Doc) (Do
 			if err = json.Unmarshal(data, &d); err != nil {
 				return nil, err
 			}
-			return d, nil // Retry an existing logical question without another alert.
+			return inputNotice(d), nil // Retry the same notice without another alert.
 		}
 		if err != sql.ErrNoRows {
 			return nil, err
 		}
 	}
-	d := Doc{"id": uuid.NewString(), "status": "open", "response": "", "revision": float64(1), "createdAt": stamp(s.Now()), "updatedAt": stamp(s.Now()), "taskId": "", "externalKey": "", "projectName": Text(p, "name")}
-	merge(d, payload)
+	d := Doc{"id": uuid.NewString(), "status": "open", "revision": float64(1), "createdAt": stamp(s.Now()), "updatedAt": stamp(s.Now()), "taskId": "", "externalKey": "", "projectName": Text(p, "name")}
+	merge(d, inputNotice(payload)) // Discard deprecated title/message, including from old clients.
 	if err = put(ctx, tx, "input", Text(d, "id"), pid, d); err != nil {
 		return nil, err
 	}
@@ -68,10 +94,7 @@ func (s *Store) requestInputTx(ctx context.Context, tx *sql.Tx, payload Doc) (Do
 }
 
 func (s *Store) inputEvent(ctx context.Context, tx *sql.Tx, kind string, payload, d Doc) error {
-	message := Text(d, "title") + ": " + Text(d, "message")
-	if kind != "input.required" {
-		message = Text(d, "title") + ": " + Text(d, "status") + " · " + Text(d, "response")
-	}
+	message := attentionMessage(kind)
 	actor := Text(payload, "actor")
 	if actor == "" && kind == "input.required" {
 		actor = Text(d, "agent")
@@ -84,11 +107,11 @@ func (s *Store) inputEvent(ctx context.Context, tx *sql.Tx, kind string, payload
 	return err
 }
 
-func (s *Store) AnswerInput(ctx context.Context, id string, payload Doc) (Doc, error) {
-	if err := fields(payload, "status response"); err != nil {
+func (s *Store) CloseInput(ctx context.Context, id string, payload Doc) (Doc, error) {
+	if err := fields(payload, "status"); err != nil {
 		return nil, err
 	}
-	if err := texts(payload, "", map[string]int{"status": 16, "response": 8000}); err != nil {
+	if err := texts(payload, "", map[string]int{"status": 16}); err != nil {
 		return nil, err
 	}
 	return s.write(ctx, func(tx *sql.Tx) (Doc, error) {
@@ -106,9 +129,6 @@ func (s *Store) AnswerInput(ctx context.Context, id string, payload Doc) (Doc, e
 		if err = oneOf(d, "status", "resolved cancelled"); err != nil {
 			return nil, err
 		}
-		if Text(d, "status") == "resolved" && strings.TrimSpace(Text(d, "response")) == "" {
-			return nil, bad("response is required when resolving an input request")
-		}
 		d["revision"] = Num(d, "revision") + 1
 		d["updatedAt"] = stamp(s.Now())
 		d["resolvedBy"] = Text(payload, "actor")
@@ -123,7 +143,7 @@ func (s *Store) AnswerInput(ctx context.Context, id string, payload Doc) (Doc, e
 		if err = put(ctx, tx, "project", Text(p, "id"), "", p); err != nil {
 			return nil, err
 		}
-		return d, s.inputEvent(ctx, tx, "input."+Text(d, "status"), payload, d)
+		return inputNotice(d), s.inputEvent(ctx, tx, "input."+Text(d, "status"), payload, d)
 	})
 }
 

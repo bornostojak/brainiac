@@ -189,7 +189,7 @@ func (a *App) Dispatch(ctx context.Context, method, path string, q url.Values, p
 				return s.Get(ctx, "input", p[1])
 			}
 			if method == "PATCH" {
-				return s.AnswerInput(ctx, p[1], payload)
+				return s.CloseInput(ctx, p[1], payload)
 			}
 		}
 	case "instructions":
@@ -651,23 +651,25 @@ Read /api/v1/openapi.json for the machine-readable contract. MCP: /mcp.
 
 ## User input and service instructions
 
-Use the host app's native user-question tool or chat as the primary input path.
-Brainiac creates an additional browser alert; it does not open native Desktop
-dialogs. Also ask in the host, preserving its input, permission and approval
-flows. If that question tool blocks, post the mirror first and then ask natively.
-Resolve the mirror from the actual host answer without demanding a second answer.
-Brainiac alone is for hosts without input channels or an explicit user preference;
-browser responses never substitute for native execution permissions.
+Brainiac only notifies the user that an agent needs their attention. Actual
+questions and answers stay in the originating chat/native question tool. Preserve
+native input, permission and approval dialogs; there is no Brainiac reply form.
+If the native question tool blocks, post the notice first and then ask natively.
 
-POST /api/v1/input-requests with projectId, agent, title, message and optional
-taskId/externalKey, or include inputRequest in a blocker work report. A stable
-externalKey deduplicates retries per project/agent. Every open browser project,
-task, knowledge and Markdown view shows unresolved questions; no desktop
-permission is required for in-page popups. Desktop alerts are an optional browser
-permission. A response PATCH uses status=resolved, response and expectedRevision;
-cancel with status=cancelled. Dismissal is not a response or approval. Read
-GET /api/v1/input-requests/{requestId}, list status=resolved/all, or consume
-input.resolved in the normal numbered feed. Popups resume after reload/reconnect.
+POST /api/v1/input-requests with projectId, agent and optional taskId, source
+(actual harness name), sourceUrl (known HTTP(S) conversation URL), externalKey;
+or include that metadata as inputRequest in a blocker work report. Never send
+question/answer content. externalKey deduplicates retries per project/agent.
+All browser views receive the heads-up with project/agent and where to return.
+Desktop alerts require optional browser permission; in-page notices do not.
+After the native question is handled, PATCH /api/v1/input-requests/{requestId}
+with status=resolved and expectedRevision; status=cancelled withdraws it. No
+response field is accepted. MCP close_input_request does the same; the old
+answer_input_request name is a deprecated closure alias. Dismissal/closure never
+counts as user input or approval. GET a notice or list status=resolved/all for
+metadata only. Old stored question/answer bodies are excluded from public reads
+and historical input events. Deprecated title/message writes are discarded.
+Popups resume after reload/reconnect and use polling when streams disconnect.
 
 GET /api/v1/instructions?agent=AGENT&projectId=PROJECT returns pending service
 guidance outside the numbered feed. Check once at session start; ordinary

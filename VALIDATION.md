@@ -167,3 +167,32 @@ Go acceptance tests, including HTTP/stdio MCP and the served installer, Python
 checks and both skill validators passed. Native dialog presentation remains a
 host responsibility; this correction changes agent guidance and does not
 retroactively open dialogs for agents already waiting on an existing request.
+
+## Attention-only notices (1.3.0)
+
+- Brainiac now gives a generic heads-up with project, agent and optional harness/
+  conversation link. Questions and answers stay in the native host conversation.
+  The earlier browser-answer workflow described for 1.1–1.2.1 is superseded.
+- REST and MCP notice creation accept metadata without question text. Legacy
+  title/message writes are discarded; replacing an answer is rejected. Closure
+  requires the current revision, preserves terminal-state protection and sends
+  a generic event. The new close_input_request tool has a deprecated metadata-only
+  answer_input_request alias; neither accepts a response.
+- Historical notice reads, deduplicated reports and input-event replay exclude
+  old question/answer bodies. Tests confirm the stored history and event numbers
+  remain intact. Conversation links reject unsafe schemes and URL credentials.
+- Chromium verified cross-project delivery, no question text or reply controls,
+  known conversation links, dismissal/reopening, reloads, cross-tab closure,
+  Markdown notices and polling with SSE disabled. The compact agent table, limits,
+  header split, nested tasks, live summary and knowledge views still pass.
+- Go acceptance tests exercised HTTP/stdio MCP and both closure tools. Full tests,
+  race detection, vet, Python checks and both skill validators passed. Desktop OS
+  delivery and native host dialog presentation were not automated; actual input
+  remains a host responsibility.
+- The existing Compose deployment is healthy on port 3011. Both installed Codex
+  skills and the used installer copy were refreshed; the local stdio binary was
+  rebuilt. No additional harness installs or existing Brainiac MCP configurations
+  were found on this device. Current private access settings remain local.
+- All reachable file history and tracked working files passed the privacy scan.
+  Runtime data/configuration remain ignored, and requested commit attribution
+  is preserved.
