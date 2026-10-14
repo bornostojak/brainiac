@@ -196,3 +196,40 @@ retroactively open dialogs for agents already waiting on an existing request.
 - All reachable file history and tracked working files passed the privacy scan.
   Runtime data/configuration remain ignored, and requested commit attribution
   is preserved.
+
+## Project lessons and notification review (1.4.0)
+
+- Project lessons retain approach/assumption, observed outcome, actionable
+  correction, evidence/scope, classification, confidence, tags and provenance.
+  Immutable project/entry identifiers and same-project task references passed
+  isolation checks. Current user instructions take precedence over stored lessons.
+- Lightweight indexes and revision listings exclude long text; exact tags and
+  project/task/agent/kind/confidence/status filtering passed. Active-only default
+  lists exclude superseded entries. Guarded PATCH conflicts preserve prior content,
+  and historical revisions remain immutable and survive database reopen.
+- Concurrent incident-key retries create one entry/event. Progress reports can
+  include up to 20 lessons; invalid later entries roll back progress, presence,
+  lessons and numbered events together. Events contain durable lesson references
+  and support exact lessonId filtering without changing cursor semantics.
+- HTTP and stdio SDK clients exercised all six lesson tools and both new Markdown
+  resource templates. Numeric revision path schemas now match SDK validation for
+  lesson and knowledge history. The deployed service exposes 41 tools and six
+  resource templates; read-only smoke checks passed on both live transports.
+- Chromium passed live project lesson previews, individual content retrieval,
+  search, revision refresh, supersession, safe Markdown and project isolation.
+  Notification review passed more than 100 filtered updates, strict increasing
+  order, next/previous pages, recent-window selection, retained project/agent
+  filters, live additions and mobile layout. Earlier compact progress/agent/usage
+  views and attention-only notices continue to pass.
+- Go tests, race detection, vet, Python checks and both skill validators passed.
+  The native stdio binary was rebuilt and both installed Codex skill packages
+  match the served packages. Skill guidance favors relevant index reads and
+  repeat-preventing corrections in existing milestone batches, not per-action
+  calls or unverified permanent preferences.
+- The Compose deployment is healthy on port 3011; original project/task IDs,
+  knowledge revisions and numbered history survived recreation. Private listener
+  and allowlist settings match the local configuration and remain ignored.
+  The first real lesson preserves the user's explicit attention-only input
+  correction; acceptance fixtures were confined to disposable services.
+- All reachable tracked history and new working files passed the privacy scan;
+  requested author/committer attribution is retained.
