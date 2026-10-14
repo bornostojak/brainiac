@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Brainiac · review</title><link rel="stylesheet" href="/assets/style.css"><script src="/assets/alerts.js" defer></script><script src="/assets/review.js" defer></script></head>
+<body data-progress-page><header><a class="brand" href="/">brainiac / progress</a><nav><a href="/notifications">Notifications</a><a href="/knowledge">Knowledge</a><a href="/README.md">API guide</a><span id="connection" class="muted" role="status">Connecting…</span></nav></header>
+<section class="panel"><h1 id="review-title">Review</h1><p id="review-description" class="muted"></p><div id="review-links" class="stats"></div></section>
+<form id="review-filters" class="toolbar review-filters">
+<label id="project-label">Project <select id="review-project" aria-label="Project"><option value="">All projects</option></select></label>
+<label>Kind <select id="review-kind" aria-label="Kind"><option value="">All kinds</option></select></label>
+<label id="status-label" hidden>Status <select id="review-status" aria-label="Status"><option value="active">Active lessons</option><option value="superseded">Superseded</option><option value="all">All statuses</option></select></label>
+<label id="confidence-label" hidden>Confidence <select id="review-confidence" aria-label="Confidence"><option value="">All confidence</option><option value="observed">Observed</option><option value="confirmed">Confirmed</option></select></label>
+<label>Agent <input id="review-agent" aria-label="Agent" type="text" placeholder="Exact agent ID"></label>
+<label>Task <input id="review-task" aria-label="Task" type="text" placeholder="Exact task ID"></label>
+<label id="tag-label" hidden>Tag <input id="review-tag" aria-label="Tag" type="text" placeholder="Exact tag"></label>
+<label id="recipient-label">Recipient <input id="review-recipient" aria-label="Recipient" type="text" placeholder="Routing label"></label>
+<label id="since-label">After update <input id="review-since" aria-label="After update" type="number" min="0" step="1" value="0"></label>
+<label>Search <input id="review-search" aria-label="Search" type="search" placeholder="Search…"></label>
+<button type="submit" class="alert-button">Apply filters</button>
+</form>
+<p id="review-count" class="muted" role="status">Loading…</p>
+<main id="review-list" class="rows" aria-live="polite"></main>
+<div id="review-pagination" class="toolbar"><button id="review-previous" class="alert-button" disabled>Previous page</button><button id="review-recent" class="alert-button">Recent updates</button><button id="review-next" class="alert-button" disabled>Next page</button></div>
+<footer>Reported observations · click a row for details · <a href="/README.md">API guide</a></footer></body></html>

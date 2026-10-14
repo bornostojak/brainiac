@@ -129,6 +129,48 @@ Harness references: [OpenCode skills](https://dev.opencode.ai/v2/docs/skills/),
 
 ## Agent workflow
 
+### Project lessons and notification review
+
+Each project has a durable lessons log for failed approaches, miscalculations,
+misunderstandings and explicit user preferences. Each lesson has its own UUID,
+title, short summary, kind, attempt, observed outcome, actionable correction,
+evidence/scope, tags and optional task/agent references. Confidence defaults to
+`observed`; use `confirmed` only with verification or an explicit user correction.
+These records are retrievable project memory. They do not train models or
+supersede the user's current instructions.
+
+- GET/POST `/api/v1/projects/{projectId}/lessons`: lightweight index or creation.
+  Creation requires title and correction; optional externalKey deduplicates
+  retries within the project. Search q across title/summary/tags, exact tag,
+  kind, confidence, agent or taskId. Status defaults to active; use
+  status=superseded/all for older entries. Indexes omit the long text fields.
+- GET/PATCH `/api/v1/projects/{projectId}/lessons/{lessonId}`: individual entry;
+  updates require expectedRevision. Mark obsolete lessons status=superseded.
+- GET `/api/v1/projects/{projectId}/lessons/{lessonId}/revisions` and
+  `/revisions/{revision}`: revision metadata and immutable historical content.
+- `report_work` accepts up to 20 new lessons in `lessons`, inheriting the reporting
+  agent/actor. Progress, lessons and numbered events commit together. Record only
+  discoveries likely to prevent repetition, in existing meaningful reports.
+
+MCP tools `list_project_lessons`, `get_project_lesson`, `create_project_lesson`,
+`update_project_lesson`, `list_lesson_revisions` and `get_lesson_revision` share
+these endpoints. Read the index at session start and before related work, then
+fetch only relevant articles. Revise existing lessons rather than duplicating
+or turning an uncertain observation into a permanent rule.
+
+The browser exposes `/projects/{projectId}/lessons`, plus an index and individual
+articles at `/projects/{projectId}/lessons/README.md` and
+`/projects/{projectId}/lessons/{lessonId}/README.md`. The project page shows recent
+active lessons. Markdown negotiation and safe rendering match other READMEs.
+
+Users can review the full numbered feed at `/notifications`, filter by project,
+kind, agent, task or recipient, and browse pages oldest first. Search covers the
+current page; **Recent updates** jumps to the latest 100 global update numbers
+while retaining filters. Project links open `/notifications?projectId=PROJECT`.
+New committed changes refresh the selected page without moving its starting
+cursor. API notifications also support an exact lessonId filter. Attention
+notices remain generic; questions and answers stay in the originating chat.
+
 ### Input popups and independent service instructions
 
 Brainiac sends a heads-up: **“Your attention is needed · Project · Agent.

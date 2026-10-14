@@ -637,9 +637,9 @@ func (s *Store) Message(ctx context.Context, payload Doc) (Doc, error) {
 }
 
 type FeedOptions struct {
-	Since                                                    int64
-	Limit                                                    int
-	ProjectID, TaskID, Actor, Recipient, Kind, KnowledgeSlug string
+	Since                                                              int64
+	Limit                                                              int
+	ProjectID, TaskID, Actor, Recipient, Kind, KnowledgeSlug, LessonID string
 }
 type Feed struct {
 	Notifications []Doc `json:"notifications"`
@@ -668,7 +668,8 @@ func (s *Store) Feed(ctx context.Context, o FeedOptions) (Feed, error) {
  AND (?='' OR json_extract(document,'$.projectId')=?) AND (?='' OR json_extract(document,'$.taskId')=?)
  AND (?='' OR json_extract(document,'$.actor')=?) AND (?='' OR json_extract(document,'$.kind')=?)
  AND (?='' OR json_extract(document,'$.knowledgeSlug')=?)
- AND (?='' OR json_extract(document,'$.recipient')='' OR json_extract(document,'$.recipient')=?) ORDER BY number LIMIT ?`, o.Since, f.LatestCursor, o.ProjectID, o.ProjectID, o.TaskID, o.TaskID, o.Actor, o.Actor, o.Kind, o.Kind, o.KnowledgeSlug, o.KnowledgeSlug, o.Recipient, o.Recipient, o.Limit+1)
+ AND (?='' OR json_extract(document,'$.lessonId')=?)
+ AND (?='' OR json_extract(document,'$.recipient')='' OR json_extract(document,'$.recipient')=?) ORDER BY number LIMIT ?`, o.Since, f.LatestCursor, o.ProjectID, o.ProjectID, o.TaskID, o.TaskID, o.Actor, o.Actor, o.Kind, o.Kind, o.KnowledgeSlug, o.KnowledgeSlug, o.LessonID, o.LessonID, o.Recipient, o.Recipient, o.Limit+1)
 	if err != nil {
 		return f, err
 	}

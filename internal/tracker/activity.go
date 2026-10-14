@@ -37,7 +37,7 @@ func (s *Store) decorateActivity(d Doc) {
 // ReportWork atomically batches task progress, agent presence and optional usage.
 // Presence is per project/agent; one agent on several tasks is counted only once.
 func (s *Store) ReportWork(ctx context.Context, pid string, payload Doc) (Doc, error) {
-	if err := fields(payload, "agent provider model active workingOn workSummary tasks taskUpdates usage message inputRequest"); err != nil {
+	if err := fields(payload, "agent provider model active workingOn workSummary tasks taskUpdates usage message inputRequest lessons"); err != nil {
 		return nil, err
 	}
 	if err := texts(payload, "agent", map[string]int{"agent": 128, "provider": 128, "model": 128, "workingOn": 2000, "workSummary": 1000, "message": 8000}); err != nil {
@@ -257,6 +257,30 @@ func (s *Store) ReportWork(ctx context.Context, pid string, payload Doc) (Doc, e
 				return nil, err
 			}
 			result["inputRequest"] = d
+		}
+		if value, ok := payload["lessons"]; ok {
+			items, valid := value.([]any)
+			if !valid || len(items) > 20 {
+				return nil, bad("lessons must be an array of at most 20 new entries")
+			}
+			created := []Doc{}
+			for _, item := range items {
+				entry, valid := item.(map[string]any)
+				if !valid {
+					return nil, bad("lessons must contain objects")
+				}
+				input := clone(Doc(entry))
+				if owner, ok := input["agent"]; ok && owner != agent {
+					return nil, bad("batched lesson agent must match the reporting agent")
+				}
+				input["agent"], input["actor"] = agent, actor
+				lesson, err := s.saveLessonTx(ctx, tx, pid, "", input)
+				if err != nil {
+					return nil, err
+				}
+				created = append(created, lessonIndex(lesson))
+			}
+			result["lessons"] = created
 		}
 		instructions, err := pendingInstructions(ctx, tx, agent, pid)
 		if err != nil {

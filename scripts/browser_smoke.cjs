@@ -193,7 +193,70 @@ async function api(method, path, payload) {
     await page.locator(`.input-popup[data-request-id="${articleRequest.id}"]`).waitFor();
     await api('PATCH', '/input-requests/' + articleRequest.id, { status: 'cancelled', expectedRevision: 1 });
     await page.waitForFunction(() => document.querySelectorAll('.input-popup').length === 0);
+    // Project memory stays scoped and loads long lesson content only on demand.
+    await page.goto(base + '/projects/' + project.id);
+    await page.waitForFunction(() => document.querySelector('#connection').textContent.includes('Live'));
+    const lesson = await api('POST', `/projects/${project.id}/lessons`, {
+      title: 'Retry scope correction', summary: 'Reuse the same incident key on retries',
+      kind: 'misunderstanding', attempt: 'Created duplicate entries for the same incident',
+      outcome: 'The index contained duplicate corrections', correction: 'Reuse externalKey for the same incident.',
+      evidence: 'Acceptance test: <script>alert(1)</script>', tags: ['retries'], agent: 'browser-reviewer', taskId: root.id,
+    });
+    await api('POST', `/projects/${other.id}/lessons`, { title: 'Foreign lesson', correction: 'Must stay in its project' });
+    await page.getByRole('link', { name: lesson.title, exact: true }).waitFor();
+    await page.getByRole('link', { name: 'All lessons', exact: true }).click();
+    await page.waitForSelector('.lesson-row');
+    assert.equal(await page.locator('.lesson-row').count(), 1);
+    await page.locator('.lesson-row summary').click();
+    await page.waitForFunction(() => document.querySelector('.lesson-content').textContent.includes('Reuse externalKey'));
+    assert.equal(await page.locator('.lesson-content script').count(), 0);
+    await page.getByLabel('Search', { exact: true }).fill('missing-lesson');
+    await page.waitForFunction(() => document.querySelectorAll('.lesson-row').length === 0);
+    await page.getByLabel('Search', { exact: true }).fill('Retry scope');
+    await page.waitForSelector('.lesson-row');
+    await api('PATCH', `/projects/${project.id}/lessons/${lesson.id}`, { correction: 'Use a new key only for a different incident.', confidence: 'confirmed', expectedRevision: 1 });
+    await page.waitForFunction(() => document.querySelector('.lesson-content').textContent.includes('different incident'));
+    await api('PATCH', `/projects/${project.id}/lessons/${lesson.id}`, { status: 'superseded', expectedRevision: 2 });
+    await page.waitForFunction(() => document.querySelectorAll('.lesson-row').length === 0);
+    await page.getByLabel('Status', { exact: true }).selectOption('all');
+    await page.getByRole('button', { name: 'Apply filters' }).click();
+    await page.waitForSelector('.lesson-row');
+    await page.getByRole('link', { name: 'Read Markdown', exact: true }).click();
+    await page.waitForSelector('.markdown');
+    assert.equal(await page.locator('.markdown script').count(), 0);
+    assert.ok((await page.locator('.markdown').innerText()).includes('different incident'));
+
+    // Full-history review uses the same numbered feed and keeps filters on pages.
+    for (let start = 0; start < 101; start += 20) {
+      await Promise.all(Array.from({ length: Math.min(20, 101 - start) }, (_, i) => api('POST', '/notifications', {
+        projectId: project.id, actor: 'browser-review-feed', message: 'Review entry ' + (start + i),
+      })));
+    }
+    await api('POST', '/notifications', { projectId: other.id, actor: 'browser-review-feed', message: 'Foreign review entry' });
+    await page.goto(base + '/notifications?projectId=' + project.id);
+    await page.waitForFunction(() => document.querySelector('#connection').textContent.includes('Live'));
+    await page.getByLabel('Agent', { exact: true }).fill('browser-review-feed');
+    await page.getByRole('button', { name: 'Apply filters' }).click();
+    await page.waitForFunction(() => document.querySelectorAll('.notification-row').length === 100 && !document.querySelector('#review-next').disabled);
+    const numbers = await page.locator('.notification-row').evaluateAll(rows => rows.map(r => Number(r.dataset.key)));
+    assert.ok(numbers.every((n, i) => i === 0 || n > numbers[i - 1]));
+    assert.ok(!(await page.locator('#review-list').innerText()).includes('Foreign review entry'));
+    await page.getByRole('button', { name: 'Next page', exact: true }).click();
+    await page.waitForFunction(() => document.querySelectorAll('.notification-row').length === 1 && document.querySelector('#review-next').disabled);
+    const last = Number(await page.locator('.notification-row').getAttribute('data-key'));
+    assert.ok(last > numbers.at(-1));
+    await api('POST', '/notifications', { projectId: project.id, actor: 'browser-review-feed', message: 'Live review update' });
+    await page.waitForFunction(() => document.querySelectorAll('.notification-row').length === 2);
+    assert.ok((await page.locator('#review-list').innerText()).includes('Live review update'));
+    await page.getByRole('button', { name: 'Previous page', exact: true }).click();
+    await page.waitForFunction(() => document.querySelectorAll('.notification-row').length === 100);
+    await page.getByRole('button', { name: 'Recent updates', exact: true }).click();
+    await page.waitForFunction(() => document.querySelectorAll('.notification-row').length < 100);
+    await page.getByLabel('Search', { exact: true }).fill('Live review update');
+    assert.equal(await page.locator('.notification-row').count(), 1);
+    await page.screenshot({ path: output.replace(/\.png$/, '-notifications.png'), fullPage: true });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     assert.deepEqual(errors, []);
-    console.log('Browser acceptance passed: 2:1 header, live work summary, compact agent/model rows, exact usage bars, unknown limits, mobile table; attention-only cross-project notices, native-chat links, polling, subtasks, SSE, filters and knowledge.');
+    console.log('Browser acceptance passed: 2:1 header, live work summary, compact agent/model rows, exact usage bars, unknown limits, mobile table; attention-only cross-project notices, native-chat links, polling, subtasks, SSE, filters, knowledge, scoped lesson memory/revisions and paginated live notification review.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

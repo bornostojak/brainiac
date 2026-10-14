@@ -7,7 +7,7 @@ import "strings"
 func OpenAPI() map[string]any {
 	str := func() any { return map[string]any{"type": "string"} }
 	props := map[string]any{}
-	for _, k := range strings.Fields("name description readme externalKey lifecycle activity parentId agent detail next verification actor slug title summary body sourceProjectId sourceTaskId sourceAgent projectId taskId message recipient provider model sessionId resetsAt observedAt source sourceUrl key kind") {
+	for _, k := range strings.Fields("name description readme externalKey lifecycle activity parentId agent detail next verification actor slug title summary body sourceProjectId sourceTaskId sourceAgent projectId taskId message recipient provider model sessionId resetsAt observedAt source sourceUrl key kind attempt outcome correction evidence confidence") {
 		props[k] = str()
 	}
 	props["percent"] = map[string]any{"type": "number", "minimum": 0, "maximum": 100}
@@ -41,6 +41,17 @@ func OpenAPI() map[string]any {
 	schema("Message", "actor projectId taskId recipient message", "message")
 	schema("KnowledgeCreate", "slug title summary tags body sourceProjectId sourceTaskId sourceAgent actor", "slug title body")
 	schema("KnowledgePatch", "title summary tags body sourceProjectId sourceTaskId sourceAgent actor expectedRevision", "expectedRevision")
+	schema("LessonCreate", "title summary kind status confidence attempt outcome correction evidence tags taskId agent externalKey actor", "title correction")
+	schema("LessonPatch", "title summary kind status confidence attempt outcome correction evidence tags taskId agent actor expectedRevision", "expectedRevision")
+	for _, name := range []string{"LessonCreate", "LessonPatch"} {
+		p := schemas[name].(map[string]any)["properties"].(map[string]any)
+		p["kind"] = map[string]any{"type": "string", "enum": strings.Fields("failed_approach miscalculation misunderstanding user_preference")}
+		p["status"] = map[string]any{"type": "string", "enum": []string{"active", "superseded"}}
+		p["confidence"] = map[string]any{"type": "string", "enum": []string{"observed", "confirmed"}}
+		for _, key := range strings.Fields("attempt outcome correction evidence") {
+			p[key] = map[string]any{"type": "string", "maxLength": 32768}
+		}
+	}
 	schema("Usage", "provider model sessionId source observedAt tokenBudget tokensUsed tokensRemaining contextTokens contextLimit accountRemainingPercent resetsAt actor expectedRevision", "")
 	schema("InputRequest", "projectId taskId agent source sourceUrl externalKey actor", "projectId agent")
 	schema("InputClose", "actor expectedRevision", "expectedRevision")
@@ -69,6 +80,7 @@ func OpenAPI() map[string]any {
 	reportProps["usage"] = schemas["Usage"]
 	schema("BatchedInputRequest", "source sourceUrl taskId externalKey", "")
 	reportProps["inputRequest"] = schemas["BatchedInputRequest"]
+	reportProps["lessons"] = map[string]any{"type": "array", "maxItems": 20, "items": schemas["LessonCreate"]}
 	activityProps := map[string]any{}
 	for _, key := range strings.Fields("agent provider model workingOn workSummary active tasks actor expectedRevision") {
 		activityProps[key] = reportProps[key]
@@ -85,7 +97,15 @@ func OpenAPI() map[string]any {
 		params := []any{}
 		for _, segment := range strings.Split(path, "/") {
 			if strings.HasPrefix(segment, "{") {
-				params = append(params, map[string]any{"name": strings.Trim(segment, "{}"), "in": "path", "required": true, "schema": str()})
+				key := strings.Trim(segment, "{}")
+				parameter := str()
+				if key == "revision" {
+					parameter = map[string]any{"type": "integer", "minimum": 1}
+				}
+				if key == "number" {
+					parameter = map[string]any{"type": "integer", "minimum": 0}
+				}
+				params = append(params, map[string]any{"name": key, "in": "path", "required": true, "schema": parameter})
 			}
 		}
 		if method == "get" {
@@ -93,6 +113,8 @@ func OpenAPI() map[string]any {
 			switch path {
 			case "/projects":
 				query = "externalKey lifecycle activity q agent status"
+			case "/projects/{projectId}/lessons":
+				query = "q kind status confidence agent taskId tag"
 			case "/projects/{projectId}/tasks":
 				query = "agent status parentId q"
 			case "/summary":
@@ -100,7 +122,7 @@ func OpenAPI() map[string]any {
 			case "/projects/{projectId}/summary":
 				query = "agent status"
 			case "/notifications", "/notifications/since/{number}":
-				query = "since limit wait projectId taskId actor recipient kind knowledgeSlug"
+				query = "since limit wait projectId taskId actor recipient kind knowledgeSlug lessonId"
 			case "/knowledge":
 				query = "q tag"
 			case "/input-requests":
@@ -112,6 +134,17 @@ func OpenAPI() map[string]any {
 				param := str()
 				if k == "since" || k == "limit" || k == "wait" {
 					param = map[string]any{"type": "integer", "minimum": 0}
+				}
+				if path == "/projects/{projectId}/lessons" {
+					if k == "status" {
+						param = map[string]any{"type": "string", "enum": []string{"active", "superseded", "all"}}
+					}
+					if k == "confidence" {
+						param = map[string]any{"type": "string", "enum": []string{"observed", "confirmed", "all"}}
+					}
+					if k == "kind" {
+						param = map[string]any{"type": "string", "enum": strings.Fields("failed_approach miscalculation misunderstanding user_preference all")}
+					}
 				}
 				if k == "status" && path == "/input-requests" {
 					param = map[string]any{"type": "string", "enum": []string{"open", "resolved", "cancelled", "all"}}
@@ -149,6 +182,12 @@ func OpenAPI() map[string]any {
 	add("/knowledge/{slug}/revisions", "get", "List revision metadata", "")
 	add("/knowledge/{slug}/revisions/{revision}", "get", "Fetch historical revision", "")
 	add("/agents", "get", "Reported agent usage", "")
+	add("/projects/{projectId}/lessons", "get", "Lightweight project lesson index, active by default; search title/summary/tags and fetch relevant entries individually", "")
+	add("/projects/{projectId}/lessons", "post", "Record an evidence-based failure, mistaken assumption or user correction; externalKey deduplicates retries within a project", "LessonCreate")
+	add("/projects/{projectId}/lessons/{lessonId}", "get", "Read one project lesson including approach, outcome, correction and evidence", "")
+	add("/projects/{projectId}/lessons/{lessonId}", "patch", "Revise or supersede a lesson with expectedRevision; retain historical revisions", "LessonPatch")
+	add("/projects/{projectId}/lessons/{lessonId}/revisions", "get", "List lesson revision metadata", "")
+	add("/projects/{projectId}/lessons/{lessonId}/revisions/{revision}", "get", "Read an immutable lesson revision", "")
 	add("/agents/{agent}/usage", "get", "Fetch usage", "")
 	add("/agents/{agent}/usage", "put", "Replace usage observation", "Usage")
 	add("/input-requests", "get", "List open attention notices across projects by default, without questions or answers", "")

@@ -64,3 +64,13 @@ task and optional harness/conversation metadata, with revision-guarded closure
 after native input is handled. Exclude legacy question/answer content from
 public notices and historical input events without deleting stored history.
 Update REST/MCP contracts, both skills and the live deployment together.
+
+Project learning and review: record durable, individually addressable lessons
+for failed approaches, miscalculations, misunderstandings and explicit user
+corrections. Keep evidence, scope and confidence; current user instructions take
+precedence. Provide lightweight filtered indexes, revision guards/history, safe
+Markdown and REST/MCP resources. Batch new lessons into meaningful progress
+reports. Add compact project lesson views and a user-facing numbered notification
+review page with filters, pagination and live refresh. Validate isolation, atomic
+rollback, persistence, browser/MCP behavior, then refresh deployment/skills and
+publish the versioned commit.

@@ -119,6 +119,40 @@ revisions reappear; on 409 reread before acknowledging. Update installed package
 when appropriate. Guidance remains subject to the user's task and harness rules.
 Instructions do not execute commands or wake model turns automatically.
 
+## Project lessons
+
+Read `list_project_lessons` / GET `.../projects/PROJECT/lessons` once at session
+start, then search its lightweight index before related work using q/tag, kind,
+taskId or agent. Fetch relevant entries with `get_project_lesson` / GET
+`.../lessons/ID`. Do not reload the whole log after every action.
+
+Record lessons likely to prevent a repeat mistake: failed approaches,
+miscalculations, misunderstandings, or explicit user preferences. Include title,
+short summary, kind (`failed_approach`, `miscalculation`, `misunderstanding`,
+`user_preference`), attempt, observed outcome, actionable correction, evidence and
+scope, plus optional tags/taskId. Keep confidence `observed` until supported by
+verification or explicit user correction (`confirmed`). Do not infer permanent
+preferences from an ambiguous failure. Keep entries focused on the correction;
+omit credentials and unrelated personal details.
+Current user instructions take precedence; lessons are project memory, not model
+training or authorization.
+
+Prefer `lessons:[{"title":"...","summary":"...","kind":"failed_approach",
+"attempt":"...","outcome":"...","correction":"...","evidence":"...",
+"externalKey":"incident-1"}]` in the next meaningful `report_work`. The batch
+inherits agent and actor, returns entry IDs/revisions, and commits atomically.
+Alternatively use `create_project_lesson` / POST `.../lessons`. Reuse externalKey
+only for retries of the same incident; it deduplicates within the project.
+Search for an existing relevant lesson before creating another. Correct or
+supersede it with `update_project_lesson` / PATCH `.../lessons/ID`, using
+expectedRevision and status=superseded when obsolete. On 409 reread and merge;
+prior revisions remain accessible. Default indexes show active entries only.
+
+Users can review `/projects/PROJECT/lessons`, individual Markdown articles, and
+`/notifications?projectId=PROJECT`. The global `/notifications` page has filters,
+numbered pagination and live refresh. Attention notices still contain no question
+or answer body; actual input stays in the originating conversation.
+
 ## Global knowledge
 
 List `/api/v1/knowledge?q=TOPIC&tag=TAG` (or MCP `list_knowledge`) first. The index

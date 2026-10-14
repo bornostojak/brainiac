@@ -77,6 +77,18 @@ Workers maintain their own `workingOn` plus actual vendor/model. Include measure
 usage values and limits when available; unknown values remain unknown. The header
 and compact per-agent table update live; no additional per-action call is needed.
 
+When using Brainiac, read the project lesson index once at start and before
+related work; fetch only relevant entries with `list_project_lessons` and
+`get_project_lesson`. Preserve failures, mistaken assumptions and explicit user
+corrections likely to prevent repeat mistakes. Include attempt, outcome,
+actionable correction, evidence/scope and confidence (observed until verified).
+Current user instructions take precedence over stored lessons. Add new `lessons`
+in the next meaningful work report, with externalKey for retry deduplication;
+revise/supersede existing entries using expectedRevision. Do not log each action
+or invent lasting preferences. Users review project lessons and the global
+`/notifications` page. The Python fallback remains a progress board; do not
+pretend it stores durable project lessons.
+
 Ask questions and receive answers through the host's native input tool or chat.
 Brainiac's `inputRequest` in a blocker report or `request_input` only says the user
 is needed in the originating conversation. Send project/agent/task metadata,

@@ -21,4 +21,11 @@ func (a *App) EnableUI() {
 	a.mux.HandleFunc("GET /projects/{projectId}", page)
 	a.mux.HandleFunc("GET /projects/{projectId}/tasks/{taskId}", page)
 	a.mux.HandleFunc("GET /knowledge", page)
+	review := func(w http.ResponseWriter, r *http.Request) {
+		b, _ := web.ReadFile("web/review.html")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(b)
+	}
+	a.mux.HandleFunc("GET /notifications", review)
+	a.mux.HandleFunc("GET /projects/{projectId}/lessons", review)
 }

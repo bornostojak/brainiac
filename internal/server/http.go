@@ -35,6 +35,8 @@ func New(s *tracker.Store) *App {
 	a.mux.HandleFunc("GET /README.md", a.readme)
 	a.mux.HandleFunc("GET /api/README.md", a.readme)
 	a.mux.HandleFunc("GET /projects/{projectId}/README.md", a.readme)
+	a.mux.HandleFunc("GET /projects/{projectId}/lessons/README.md", a.readme)
+	a.mux.HandleFunc("GET /projects/{projectId}/lessons/{lessonId}/README.md", a.readme)
 	a.mux.HandleFunc("GET /projects/{projectId}/tasks/{taskId}/README.md", a.readme)
 	a.mux.HandleFunc("GET /knowledge/README.md", a.readme)
 	a.mux.HandleFunc("GET /knowledge/{slug}/README.md", a.readme)
@@ -90,7 +92,7 @@ func (a *App) health(w http.ResponseWriter, r *http.Request) {
 		reply(w, 503, tracker.Doc{"service": "brainiac", "status": "unavailable"})
 		return
 	}
-	reply(w, 200, tracker.Doc{"service": "brainiac", "status": "ok", "apiVersion": "v1", "version": Version, "mcp": "/mcp", "capabilities": []string{"projects", "nested-tasks", "notifications", "knowledge", "usage", "agent-activity", "input-requests", "instructions"}})
+	reply(w, 200, tracker.Doc{"service": "brainiac", "status": "ok", "apiVersion": "v1", "version": Version, "mcp": "/mcp", "capabilities": []string{"projects", "nested-tasks", "notifications", "knowledge", "usage", "agent-activity", "input-requests", "instructions", "project-lessons"}})
 }
 func (a *App) api(w http.ResponseWriter, r *http.Request) {
 	payload := tracker.Doc{}
@@ -264,6 +266,44 @@ func (a *App) Dispatch(ctx context.Context, method, path string, q url.Values, p
 			if len(p) == 3 && p[2] == "summary" && method == "GET" {
 				return s.Summary(ctx, pid, q.Get("agent"), q.Get("status"))
 			}
+			if len(p) >= 3 && p[2] == "lessons" {
+				if len(p) == 3 {
+					if method == "POST" {
+						return s.SaveLesson(ctx, pid, "", payload)
+					}
+					if method == "GET" {
+						filters := map[string]string{}
+						for _, key := range strings.Fields("q kind status confidence agent taskId tag") {
+							filters[key] = q.Get(key)
+						}
+						if filters["status"] == "" {
+							filters["status"] = "active"
+						}
+						items, err := s.Lessons(ctx, pid, filters)
+						return tracker.Doc{"lessons": items}, err
+					}
+				}
+				if len(p) == 4 {
+					if method == "GET" {
+						return s.Lesson(ctx, pid, p[3])
+					}
+					if method == "PATCH" {
+						return s.SaveLesson(ctx, pid, p[3], payload)
+					}
+				}
+				if method == "GET" && len(p) >= 5 && p[4] == "revisions" {
+					if len(p) == 5 {
+						return s.LessonHistory(ctx, pid, p[3], 0)
+					}
+					if len(p) == 6 {
+						n, err := strconv.ParseInt(p[5], 10, 64)
+						if err != nil || n < 1 {
+							return nil, &tracker.Error{Status: 400, Message: "Invalid revision"}
+						}
+						return s.LessonHistory(ctx, pid, p[3], n)
+					}
+				}
+			}
 			if len(p) >= 3 && p[2] == "tasks" {
 				if len(p) == 3 {
 					if method == "POST" {
@@ -320,7 +360,7 @@ func (a *App) Dispatch(ctx context.Context, method, path string, q url.Values, p
 			if wait > 30 {
 				return nil, &tracker.Error{Status: 400, Message: "wait must be 0..30"}
 			}
-			return s.WaitFeed(ctx, tracker.FeedOptions{Since: since, Limit: int(limit), ProjectID: q.Get("projectId"), TaskID: q.Get("taskId"), Actor: q.Get("actor"), Recipient: q.Get("recipient"), Kind: q.Get("kind"), KnowledgeSlug: q.Get("knowledgeSlug")}, time.Duration(wait)*time.Second)
+			return s.WaitFeed(ctx, tracker.FeedOptions{Since: since, Limit: int(limit), ProjectID: q.Get("projectId"), TaskID: q.Get("taskId"), Actor: q.Get("actor"), Recipient: q.Get("recipient"), Kind: q.Get("kind"), KnowledgeSlug: q.Get("knowledgeSlug"), LessonID: q.Get("lessonId")}, time.Duration(wait)*time.Second)
 		}
 	case "knowledge":
 		if len(p) == 1 {
@@ -405,7 +445,7 @@ func knownPath(p []string) bool {
 		return len(p) == 2 || len(p) == 3 && p[2] == "acknowledgements"
 	}
 	if p[0] == "projects" {
-		return len(p) == 2 || len(p) == 3 && (p[2] == "tasks" || p[2] == "summary" || p[2] == "heartbeat" || p[2] == "agents" || p[2] == "reports") || len(p) == 4 && p[2] == "tasks" || len(p) == 5 && p[2] == "agents" && p[4] == "activity"
+		return len(p) == 2 || len(p) == 3 && (p[2] == "tasks" || p[2] == "summary" || p[2] == "heartbeat" || p[2] == "agents" || p[2] == "reports" || p[2] == "lessons") || len(p) == 4 && (p[2] == "tasks" || p[2] == "lessons") || (len(p) == 5 || len(p) == 6) && p[2] == "lessons" && p[4] == "revisions" || len(p) == 5 && p[2] == "agents" && p[4] == "activity"
 	}
 	if p[0] == "knowledge" {
 		return len(p) == 2 || len(p) == 3 && p[2] == "revisions" || len(p) == 4 && p[2] == "revisions"
@@ -542,7 +582,7 @@ func (a *App) readme(w http.ResponseWriter, r *http.Request) {
 	readmeTemplate.Execute(w, template.HTML(rendered.String()))
 }
 
-var readmeTemplate = template.Must(template.New("readme").Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Brainiac · README</title><link rel="stylesheet" href="/assets/style.css"><script src="/assets/alerts.js" defer></script></head><body><header><a href="/">brainiac / progress</a><nav><a href="/knowledge">Knowledge</a><a href="/README.md">API guide</a></nav></header><article class="panel markdown">{{.}}</article></body></html>`))
+var readmeTemplate = template.Must(template.New("readme").Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Brainiac · README</title><link rel="stylesheet" href="/assets/style.css"><script src="/assets/alerts.js" defer></script></head><body><header><a href="/">brainiac / progress</a><nav><a href="/notifications">Notifications</a><a href="/knowledge">Knowledge</a><a href="/README.md">API guide</a></nav></header><article class="panel markdown">{{.}}</article></body></html>`))
 
 func (a *App) Markdown(ctx context.Context, path string) (string, error) {
 	p := strings.Split(strings.Trim(path, "/"), "/")
@@ -576,6 +616,34 @@ func (a *App) Markdown(ctx context.Context, path string) (string, error) {
 		project, err := a.Store.Get(ctx, "project", pid)
 		if err != nil {
 			return "", err
+		}
+		if p[2] == "lessons" {
+			if len(p) == 4 && p[3] == "README.md" {
+				items, err := a.Store.Lessons(ctx, pid, map[string]string{"status": "active"})
+				if err != nil {
+					return "", err
+				}
+				md := "# Project lessons: " + tracker.Text(project, "name") + "\n\nRead relevant lessons before related work. Observations remain provisional until verified; current user instructions take precedence.\n\n"
+				for _, d := range items {
+					md += fmt.Sprintf("- [%s](/projects/%s/lessons/%s/README.md) — %s · %s · %s (revision %g)\n", tracker.Text(d, "title"), pid, tracker.Text(d, "id"), tracker.Text(d, "summary"), tracker.Text(d, "kind"), tracker.Text(d, "confidence"), tracker.Num(d, "revision"))
+				}
+				return md + "\n[Project](/projects/" + pid + ") · [Notifications](/notifications?projectId=" + pid + ")\n", nil
+			}
+			if len(p) == 5 && p[4] == "README.md" {
+				d, err := a.Store.Lesson(ctx, pid, p[3])
+				if err != nil {
+					return "", err
+				}
+				md := fmt.Sprintf("# %s\n\n%s\n\nProject: %s · Kind: %s · Status: %s · Confidence: %s\n\nAgent: %s · Revision: %g · Updated: %s\n\n", tracker.Text(d, "title"), tracker.Text(d, "summary"), tracker.Text(project, "name"), tracker.Text(d, "kind"), tracker.Text(d, "status"), tracker.Text(d, "confidence"), tracker.Text(d, "agent"), tracker.Num(d, "revision"), tracker.Text(d, "updatedAt"))
+				for _, field := range []struct{ key, title string }{{"attempt", "Attempt / assumption"}, {"outcome", "Observed outcome"}, {"correction", "Correction / future approach"}, {"evidence", "Evidence / scope"}} {
+					md += "## " + field.title + "\n\n" + tracker.Text(d, field.key) + "\n\n"
+				}
+				if task := tracker.Text(d, "taskId"); task != "" {
+					md += "[Task](/projects/" + pid + "/tasks/" + task + ")\n\n"
+				}
+				return md + "[Project lessons](/projects/" + pid + "/lessons) · [Revision history](/api/v1/projects/" + pid + "/lessons/" + p[3] + "/revisions)\n", nil
+			}
+			return "", &tracker.Error{Status: 404, Message: "Unknown lesson README"}
 		}
 		d := project
 		title := tracker.Text(d, "name")
@@ -613,7 +681,7 @@ func (a *App) Markdown(ctx context.Context, path string) (string, error) {
 			}
 			md += "\n"
 		}
-		md += "## Context\n\n" + tracker.Text(d, "readme") + "\n\n## API\n\n`" + endpoint + "`\n\n[API guide](/README.md) · [Global knowledge](/knowledge/README.md)\n\n## Recent updates\n\n"
+		md += "## Context\n\n" + tracker.Text(d, "readme") + "\n\n## API\n\n`" + endpoint + "`\n\n[API guide](/README.md) · [Global knowledge](/knowledge/README.md) · [Project lessons](/projects/" + pid + "/lessons/README.md) · [Notifications](/notifications?projectId=" + pid + ")\n\n## Recent updates\n\n"
 		feed, err := a.Store.Feed(ctx, tracker.FeedOptions{Limit: 500, ProjectID: pid, TaskID: func() string {
 			if len(p) == 5 {
 				return p[3]
@@ -648,6 +716,36 @@ const apiGuide = `# Brainiac API
 
 Base path: /api/v1. All mutation requests use Content-Type: application/json.
 Read /api/v1/openapi.json for the machine-readable contract. MCP: /mcp.
+
+## Project lessons and browser review
+
+GET/POST /api/v1/projects/{projectId}/lessons lists a lightweight index or creates
+an individual lesson. GET/PATCH .../lessons/{lessonId} reads or revises it.
+GET .../lessons/{lessonId}/revisions lists revision metadata; append /{revision}
+for historical content. PATCH requires expectedRevision; status=superseded retires
+obsolete guidance without deleting history. ID and project associations are immutable.
+
+Fields: title (required, <=200 bytes), correction (required, <=32768 bytes), summary,
+kind (failed_approach/miscalculation/misunderstanding/user_preference), attempt,
+outcome, evidence (each <=32768 bytes), tags, taskId, agent, confidence
+(observed/confirmed), status (active/superseded). Creation accepts externalKey to
+deduplicate retries within the project. Default kind=failed_approach, status=active,
+confidence=observed. Indexes omit attempt/outcome/correction/evidence; search q
+across title/summary/tags, exact tag, kind/status/confidence/agent/taskId. Use
+status=all for superseded entries. Task references must belong to the project.
+
+Read relevant lessons at session start and before related work; publish discoveries
+likely to prevent repeat mistakes, not individual commands. Include evidence and
+scope, keep tentative conclusions observed, and obey current user instructions.
+Prefer up to 20 new entries in lessons of an existing report_work batch; it inherits
+agent/actor and commits lessons, progress and events atomically. Updates to existing
+lessons use their individual PATCH endpoints. No model training is performed.
+
+Browser: /projects/{projectId}/lessons and individual/index README.md views.
+Notifications: /notifications, optionally ?projectId=PROJECT; filter and page
+through numbered updates, search the current page, or select Recent updates.
+API feeds also support lessonId for an individual entry's changes. These views
+remain read-oriented; agents update through REST/MCP.
 
 ## User input and service instructions
 

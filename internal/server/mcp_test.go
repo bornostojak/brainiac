@@ -28,7 +28,7 @@ func exerciseMCP(t *testing.T, transport mcp.Transport) {
 		t.Fatal("tool discovery", e)
 	}
 	templates, e := session.ListResourceTemplates(ctx, nil)
-	if e != nil || len(templates.ResourceTemplates) != 4 {
+	if e != nil || len(templates.ResourceTemplates) != 6 {
 		t.Fatal("resource template discovery", e)
 	}
 	invoke := func(name string, args tracker.Doc) tracker.Doc {
@@ -54,6 +54,27 @@ func exerciseMCP(t *testing.T, transport mcp.Transport) {
 	pid := project["id"].(string)
 	task := invoke("create_task", tracker.Doc{"projectId": pid, "name": "Build", "agent": "builder"})["result"].(map[string]any)
 	tid := task["id"].(string)
+	lesson := invoke("create_project_lesson", tracker.Doc{"projectId": pid, "taskId": tid, "agent": "builder", "title": "Validate the input contract", "kind": "misunderstanding", "correction": "Read the documented fields before implementing", "evidence": "Rejected unknown fields", "externalKey": "contract-incident"})["result"].(map[string]any)
+	lid := lesson["id"].(string)
+	lessonIndex := invoke("list_project_lessons", tracker.Doc{"projectId": pid, "kind": "misunderstanding"})["result"].(map[string]any)["lessons"].([]any)
+	if len(lessonIndex) != 1 || lessonIndex[0].(map[string]any)["correction"] != nil {
+		t.Fatal("MCP lesson index", lessonIndex)
+	}
+	invoke("get_project_lesson", tracker.Doc{"projectId": pid, "lessonId": lid})
+	invoke("update_project_lesson", tracker.Doc{"projectId": pid, "lessonId": lid, "confidence": "confirmed", "expectedRevision": 1})
+	invoke("list_lesson_revisions", tracker.Doc{"projectId": pid, "lessonId": lid})
+	historical := invoke("get_lesson_revision", tracker.Doc{"projectId": pid, "lessonId": lid, "revision": 1})["result"].(map[string]any)
+	if historical["confidence"] != "observed" {
+		t.Fatal("lesson history", historical)
+	}
+	lessonResource, e := session.ReadResource(ctx, &mcp.ReadResourceParams{URI: "brainiac://projects/" + pid + "/lessons/" + lid + "/README.md"})
+	if e != nil || !strings.Contains(lessonResource.Contents[0].Text, "Read the documented fields") {
+		t.Fatal(lessonResource, e)
+	}
+	lessonResource, e = session.ReadResource(ctx, &mcp.ReadResourceParams{URI: "brainiac://projects/" + pid + "/lessons/README.md"})
+	if e != nil || !strings.Contains(lessonResource.Contents[0].Text, lid) {
+		t.Fatal(lessonResource, e)
+	}
 	invoke("publish_instruction", tracker.Doc{"key": "mcp-guidance", "title": "Read guidance", "message": "Use current service docs", "recipient": "builder"})
 	instructions := invoke("list_instructions", tracker.Doc{"agent": "builder", "projectId": pid})["result"].(map[string]any)
 	if len(instructions["instructions"].([]any)) != 1 {
@@ -71,7 +92,7 @@ func exerciseMCP(t *testing.T, transport mcp.Transport) {
 	invoke("answer_input_request", tracker.Doc{"requestId": legacy["id"], "status": "cancelled", "expectedRevision": 1})
 	invoke("update_task", tracker.Doc{"projectId": pid, "taskId": tid, "percent": 40, "readme": "MCP handoff", "expectedRevision": 1})
 	invoke("report_agent_usage", tracker.Doc{"agent": "builder", "tokensRemaining": 5000, "contextTokens": 2000, "contextLimit": 10000})
-	invoke("report_work", tracker.Doc{"projectId": pid, "agent": "builder", "provider": "OpenAI", "workingOn": "API implementation", "workSummary": "Building validation and checking error handling.", "taskUpdates": []any{map[string]any{"taskId": tid, "percent": 45}}, "usage": map[string]any{"tokensRemaining": 4900}})
+	invoke("report_work", tracker.Doc{"projectId": pid, "agent": "builder", "provider": "OpenAI", "workingOn": "API implementation", "workSummary": "Building validation and checking error handling.", "taskUpdates": []any{map[string]any{"taskId": tid, "percent": 45}}, "usage": map[string]any{"tokensRemaining": 4900}, "lessons": []any{map[string]any{"title": "Check evidence before confirming", "correction": "Keep confidence observed until verified", "externalKey": "confidence-incident"}}})
 	current := invoke("get_project", tracker.Doc{"projectId": pid})["result"].(map[string]any)
 	if current["workSummary"] != "Building validation and checking error handling." {
 		t.Fatal("MCP work summary not persisted")
@@ -82,6 +103,7 @@ func exerciseMCP(t *testing.T, transport mcp.Transport) {
 	}
 	invoke("report_agent_activity", tracker.Doc{"projectId": pid, "agent": "builder", "active": false})
 	invoke("create_knowledge", tracker.Doc{"slug": "mcp-tips", "title": "Tips", "body": "Reusable", "tags": []string{"mcp"}})
+	invoke("get_knowledge_revision", tracker.Doc{"slug": "mcp-tips", "revision": 1})
 	invoke("list_notifications", tracker.Doc{"since": 0, "limit": 2})
 	resource, e := session.ReadResource(ctx, &mcp.ReadResourceParams{URI: "brainiac://projects/" + pid + "/tasks/" + tid + "/README.md"})
 	if e != nil || len(resource.Contents) != 1 || !strings.Contains(resource.Contents[0].Text, "MCP handoff") {
