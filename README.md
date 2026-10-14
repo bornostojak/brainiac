@@ -129,6 +129,22 @@ Harness references: [OpenCode skills](https://dev.opencode.ai/v2/docs/skills/),
 
 ## Agent workflow
 
+### Vendor icons and agent harness
+
+The compact AI agents table shows the model vendor as a locally bundled icon.
+Hover for its name; click to copy that name. Clipboard access uses the browser API
+with a selection-copy fallback for HTTP clients. Unknown/custom vendors use a
+small initial badge. Icon assets make no requests to external services.
+
+Each row includes the model and a separate **Harness** column for the application
+running the agent, such as Codex Desktop, Codex CLI, Claude Code or OpenCode.
+Set optional `harness` (text up to 128 bytes) in `report_work`, agent activity
+reports, or usage observations. Project activity identity takes precedence over
+usage identity. Omit it from unchanged activity reports to retain the value;
+usage observations remain replacements. Unknown harnesses stay unknown, and
+existing records need no migration. Skills report known identity at start or
+change in normal batches rather than adding calls just for this metadata.
+
 ### Project lessons and notification review
 
 Each project has a durable lessons log for failed approaches, miscalculations,

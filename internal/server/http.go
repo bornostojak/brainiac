@@ -744,6 +744,19 @@ const apiGuide = `# Brainiac API
 Base path: /api/v1. All mutation requests use Content-Type: application/json.
 Read /api/v1/openapi.json for the machine-readable contract. MCP: /mcp.
 
+## Agent vendor and harness
+
+Agent work/activity reports accept provider (model vendor), model, and harness
+(host application, e.g. Codex Desktop, Codex CLI, Claude Code or OpenCode).
+Report the actual known harness at start or change in the existing batch; omitted
+activity fields retain previous identity. Harness is bounded to 128 bytes and
+can also be included in a usage observation (which replaces previous readings).
+Project presence takes precedence over shared usage identity. Do not infer the
+harness from the model vendor or agent ID. Old records remain unknown until reported.
+
+The project table uses bundled vendor icons: hover shows the name, clicking copies
+it to the clipboard. A separate compact Harness column shows the reported host.
+
 ## Project lessons and browser review
 
 GET/POST /api/v1/projects/{projectId}/lessons lists a lightweight index or creates
@@ -835,7 +848,7 @@ Project summaries include agentActivity/vendors and task activeAgents.
 The project lead includes workSummary in the same report: 1–2 plain sentences
 about what is being built/fixed now and the next meaningful step (max 1000 UTF-8
 bytes). It appears beside project completion and updates through SSE. Omit it
-when unchanged. Other agents update their own workingOn with actual provider/model;
+when unchanged. Other agents update their own workingOn with actual provider/model/harness;
 if no project summary exists the browser shows active agents' reported work.
 Projects can also create/PATCH workSummary; server-managed workSummaryAt/By track
 its timestamp/author. Reads do not update them. Known usage values and limits

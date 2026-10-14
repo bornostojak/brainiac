@@ -83,3 +83,11 @@ project SSE for agents. Clear all existing numbered notification rows locally
 as requested, preserving entity state and monotonic sequence high-water marks.
 Validate isolation, pagination/long-polling, cursor behavior after clear and
 browser project selection; refresh skills/stack and publish the release.
+
+Agent identity refinement: show compact local model-vendor icons with hover names
+and copy-on-click, and a separate Harness column. Store bounded harness metadata
+in activity and optional usage reports, with project presence taking precedence
+and unknown values never inferred. Guide both skills to report actual harness
+at start/change in existing batches. Validate persistence, project isolation,
+MCP fields, clipboard/HTTP fallback and compact mobile layout; refresh installed
+Brainiac skills and the existing Docker stack, then commit/publish the release.

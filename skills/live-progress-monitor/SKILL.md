@@ -73,7 +73,11 @@ the original Python fallback uses its existing PATCH API at the same cadence.
 
 For Brainiac, the project lead includes a brief `workSummary` in that same report
 when focus changes, describing what is being built/fixed and the next step.
-Workers maintain their own `workingOn` plus actual vendor/model. Include measured
+Workers maintain their own `workingOn` plus actual model vendor/model and
+`harness` (host application: Codex Desktop, Codex CLI, Claude Code or OpenCode).
+Report harness at start or change in the same batch; omission retains it. Never
+infer it from the vendor/agent name. The compact table shows hover/copy vendor
+icons and a separate Harness column; unavailable values remain unknown. Include measured
 usage values and limits when available; unknown values remain unknown. The header
 and compact per-agent table update live; no additional per-action call is needed.
 

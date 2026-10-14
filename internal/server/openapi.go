@@ -7,10 +7,11 @@ import "strings"
 func OpenAPI() map[string]any {
 	str := func() any { return map[string]any{"type": "string"} }
 	props := map[string]any{}
-	for _, k := range strings.Fields("name description readme externalKey lifecycle activity parentId agent detail next verification actor slug title summary body sourceProjectId sourceTaskId sourceAgent projectId taskId message recipient provider model sessionId resetsAt observedAt source sourceUrl key kind attempt outcome correction evidence confidence") {
+	for _, k := range strings.Fields("name description readme externalKey lifecycle activity parentId agent detail next verification actor slug title summary body sourceProjectId sourceTaskId sourceAgent projectId taskId message recipient provider model harness sessionId resetsAt observedAt source sourceUrl key kind attempt outcome correction evidence confidence") {
 		props[k] = str()
 	}
 	props["percent"] = map[string]any{"type": "number", "minimum": 0, "maximum": 100}
+	props["harness"] = map[string]any{"type": "string", "maxLength": 128}
 	props["workingOn"] = str()
 	props["workSummary"] = map[string]any{"type": "string", "maxLength": 1000}
 	props["active"] = map[string]any{"type": "boolean"}
@@ -52,7 +53,7 @@ func OpenAPI() map[string]any {
 			p[key] = map[string]any{"type": "string", "maxLength": 32768}
 		}
 	}
-	schema("Usage", "provider model sessionId source observedAt tokenBudget tokensUsed tokensRemaining contextTokens contextLimit accountRemainingPercent resetsAt actor expectedRevision", "")
+	schema("Usage", "provider model harness sessionId source observedAt tokenBudget tokensUsed tokensRemaining contextTokens contextLimit accountRemainingPercent resetsAt actor expectedRevision", "")
 	schema("InputRequest", "projectId taskId agent source sourceUrl externalKey actor", "projectId agent")
 	schema("InputClose", "actor expectedRevision", "expectedRevision")
 	schemas["InputClose"].(map[string]any)["properties"].(map[string]any)["status"] = map[string]any{"type": "string", "enum": []string{"resolved", "cancelled"}}
@@ -63,7 +64,7 @@ func OpenAPI() map[string]any {
 		schemas[name].(map[string]any)["properties"].(map[string]any)["kind"] = map[string]any{"type": "string", "enum": []string{"guidance", "reread_skill", "refresh_tools"}}
 	}
 	schema("InstructionAck", "agent revision", "agent revision")
-	activityFields := "agent provider model workingOn workSummary actor expectedRevision"
+	activityFields := "agent provider model harness workingOn workSummary actor expectedRevision"
 	schema("WorkReport", activityFields, "agent")
 	report := schemas["WorkReport"].(map[string]any)
 	reportProps := report["properties"].(map[string]any)
@@ -82,7 +83,7 @@ func OpenAPI() map[string]any {
 	reportProps["inputRequest"] = schemas["BatchedInputRequest"]
 	reportProps["lessons"] = map[string]any{"type": "array", "maxItems": 20, "items": schemas["LessonCreate"]}
 	activityProps := map[string]any{}
-	for _, key := range strings.Fields("agent provider model workingOn workSummary active tasks actor expectedRevision") {
+	for _, key := range strings.Fields("agent provider model harness workingOn workSummary active tasks actor expectedRevision") {
 		activityProps[key] = reportProps[key]
 	}
 	schemas["ActivityReport"] = map[string]any{"type": "object", "properties": activityProps, "additionalProperties": false}

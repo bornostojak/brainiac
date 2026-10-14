@@ -37,10 +37,10 @@ func (s *Store) decorateActivity(d Doc) {
 // ReportWork atomically batches task progress, agent presence and optional usage.
 // Presence is per project/agent; one agent on several tasks is counted only once.
 func (s *Store) ReportWork(ctx context.Context, pid string, payload Doc) (Doc, error) {
-	if err := fields(payload, "agent provider model active workingOn workSummary tasks taskUpdates usage message inputRequest lessons"); err != nil {
+	if err := fields(payload, "agent provider model harness active workingOn workSummary tasks taskUpdates usage message inputRequest lessons"); err != nil {
 		return nil, err
 	}
-	if err := texts(payload, "agent", map[string]int{"agent": 128, "provider": 128, "model": 128, "workingOn": 2000, "workSummary": 1000, "message": 8000}); err != nil {
+	if err := texts(payload, "agent", map[string]int{"agent": 128, "provider": 128, "model": 128, "harness": 128, "workingOn": 2000, "workSummary": 1000, "message": 8000}); err != nil {
 		return nil, err
 	}
 	if strings.Contains(Text(payload, "agent"), "/") {
@@ -109,7 +109,7 @@ func (s *Store) ReportWork(ctx context.Context, pid string, payload Doc) (Doc, e
 			if e, ok := err.(*Error); !ok || e.Status != 404 {
 				return nil, err
 			}
-			d = Doc{"agent": agent, "projectId": pid, "provider": "Unknown", "model": "", "workingOn": "", "tasks": []any{}, "revision": float64(0)}
+			d = Doc{"agent": agent, "projectId": pid, "provider": "Unknown", "model": "", "harness": "", "workingOn": "", "tasks": []any{}, "revision": float64(0)}
 		}
 		if err = revision(d, payload, false); err != nil {
 			return nil, err
@@ -121,15 +121,19 @@ func (s *Store) ReportWork(ctx context.Context, pid string, payload Doc) (Doc, e
 			if Text(d, "model") == "" {
 				d["model"] = Text(usage, "model")
 			}
+			if Text(d, "harness") == "" {
+				d["harness"] = Text(usage, "harness")
+			}
 		} else if known, ok := e.(*Error); !ok || known.Status != 404 {
 			return nil, e
 		}
-		for _, key := range []string{"provider", "model", "workingOn"} {
+		for _, key := range []string{"provider", "model", "harness", "workingOn"} {
 			if value, ok := payload[key]; ok {
 				d[key] = value
 			}
 		}
 		d["provider"] = canonicalProvider(Text(d, "provider"))
+		d["harness"] = strings.TrimSpace(Text(d, "harness"))
 		if value, ok := payload["tasks"]; ok {
 			items, valid := value.([]any)
 			if !valid || len(items) > 100 {

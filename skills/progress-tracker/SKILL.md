@@ -44,11 +44,11 @@ expiry is a safety timeout, not a reporting cadence. Do not call the service
 per command, file edit, reasoning step, trivial percentage change or chat turn.
 
 Prefer MCP `report_work` or POST `/api/v1/projects/PROJECT/reports` to send one
-atomic batch. Include stable `agent`, actual `provider` (vendor), `model`, `workingOn`,
+atomic batch. Include stable `agent`, actual `provider` (model vendor), `model`, `harness`, `workingOn`,
 changed `taskUpdates`, optional measured `usage`, and optional handoff `message`:
 
 ```json
-{"agent":"builder-project","provider":"OpenAI","workingOn":"Implementing API validation","workSummary":"Implementing request validation; next, verify error handling.","taskUpdates":[{"taskId":"TASK","percent":40,"status":"active","detail":"Request validation implemented","next":"Run acceptance checks"}]}
+{"agent":"builder-project","provider":"OpenAI","harness":"Codex Desktop","workingOn":"Implementing API validation","workSummary":"Implementing request validation; next, verify error handling.","taskUpdates":[{"taskId":"TASK","percent":40,"status":"active","detail":"Request validation implemented","next":"Run acceptance checks"}]}
 ```
 
 Each agent reports its own project activity; an orchestrator may batch it on
@@ -56,12 +56,18 @@ that agent's behalf. Count an agent once even if it works on several tasks.
 Task ownership alone does not prove activity. Independent `percent` estimates
 remain manual. Project completion averages top-level tasks. Missing vendors
 stay `Unknown`; do not infer vendors or token readings from agent names.
+`harness` is the application running the agent (for example Codex Desktop,
+Codex CLI, Claude Code or OpenCode), independently of the model vendor. Report
+the actual known harness at start or when it changes, in the same work report;
+omit it on unchanged check-ins to retain it. Unknown harnesses remain unknown.
+The project table shows a vendor icon (hover for name, click to copy) and a
+separate Harness column. No additional API call is needed for either field.
 
 The project lead/orchestrator maintains `workSummary`: 1–2 plain sentences about
 what is being implemented or fixed now, and the next meaningful step. Include it
 in the existing report at start, focus changes, blockers and finish; omit it from
 unchanged check-ins. Other agents update their own `workingOn` and actual
-provider/model. The summary streams into the header; when absent it falls back
+provider/model/harness. The summary streams into the header; when absent it falls back
 to active agents' reported work. No extra summary-update call is needed.
 Report measured usage with known tokenBudget/tokensUsed/tokensRemaining and
 contextTokens/contextLimit so the compact agent table can show exact values and

@@ -775,10 +775,10 @@ func (s *Store) saveUsageTx(ctx context.Context, tx *sql.Tx, agent string, paylo
 	if agent == "" || len(agent) > 128 || strings.Contains(agent, "/") {
 		return nil, bad("agent must be nonempty, up to 128 bytes, without slashes")
 	}
-	if err := fields(payload, "provider model sessionId tokenBudget tokensUsed tokensRemaining contextTokens contextLimit accountRemainingPercent resetsAt observedAt source"); err != nil {
+	if err := fields(payload, "provider model harness sessionId tokenBudget tokensUsed tokensRemaining contextTokens contextLimit accountRemainingPercent resetsAt observedAt source"); err != nil {
 		return nil, err
 	}
-	if err := texts(payload, "", map[string]int{"provider": 128, "model": 128, "sessionId": 128, "resetsAt": 64, "observedAt": 64, "source": 256}); err != nil {
+	if err := texts(payload, "", map[string]int{"provider": 128, "model": 128, "harness": 128, "sessionId": 128, "resetsAt": 64, "observedAt": 64, "source": 256}); err != nil {
 		return nil, err
 	}
 	for _, k := range strings.Fields("tokenBudget tokensUsed tokensRemaining contextTokens contextLimit accountRemainingPercent") {
@@ -817,6 +817,7 @@ func (s *Store) saveUsageTx(ctx context.Context, tx *sql.Tx, agent string, paylo
 	} // Reports replace the observation, avoiding stale values leaking between sessions.
 	d := Doc{"agent": agent, "revision": Num(old, "revision") + 1, "updatedAt": stamp(s.Now()), "observedAt": stamp(s.Now())}
 	merge(d, payload)
+	d["harness"] = strings.TrimSpace(Text(d, "harness"))
 	if err = put(ctx, tx, "agent", agent, "", d); err != nil {
 		return nil, err
 	}
@@ -935,6 +936,9 @@ func (s *Store) Summary(ctx context.Context, pid, agent, status string) (Doc, er
 				}
 				if Text(u, "model") == "" {
 					u["model"] = Text(a, "model")
+				}
+				if Text(a, "harness") != "" {
+					u["harness"] = Text(a, "harness")
 				}
 			}
 			u["provider"] = canonicalProvider(Text(u, "provider"))

@@ -92,13 +92,13 @@ func exerciseMCP(t *testing.T, transport mcp.Transport) {
 	invoke("answer_input_request", tracker.Doc{"requestId": legacy["id"], "status": "cancelled", "expectedRevision": 1})
 	invoke("update_task", tracker.Doc{"projectId": pid, "taskId": tid, "percent": 40, "readme": "MCP handoff", "expectedRevision": 1})
 	invoke("report_agent_usage", tracker.Doc{"agent": "builder", "tokensRemaining": 5000, "contextTokens": 2000, "contextLimit": 10000})
-	invoke("report_work", tracker.Doc{"projectId": pid, "agent": "builder", "provider": "OpenAI", "workingOn": "API implementation", "workSummary": "Building validation and checking error handling.", "taskUpdates": []any{map[string]any{"taskId": tid, "percent": 45}}, "usage": map[string]any{"tokensRemaining": 4900}, "lessons": []any{map[string]any{"title": "Check evidence before confirming", "correction": "Keep confidence observed until verified", "externalKey": "confidence-incident"}}})
+	invoke("report_work", tracker.Doc{"projectId": pid, "agent": "builder", "provider": "OpenAI", "harness": "Codex Desktop", "workingOn": "API implementation", "workSummary": "Building validation and checking error handling.", "taskUpdates": []any{map[string]any{"taskId": tid, "percent": 45}}, "usage": map[string]any{"tokensRemaining": 4900}, "lessons": []any{map[string]any{"title": "Check evidence before confirming", "correction": "Keep confidence observed until verified", "externalKey": "confidence-incident"}}})
 	current := invoke("get_project", tracker.Doc{"projectId": pid})["result"].(map[string]any)
 	if current["workSummary"] != "Building validation and checking error handling." {
 		t.Fatal("MCP work summary not persisted")
 	}
 	agents := invoke("list_project_agents", tracker.Doc{"projectId": pid})["result"].(map[string]any)
-	if len(agents["agents"].([]any)) != 1 {
+	if len(agents["agents"].([]any)) != 1 || agents["agents"].([]any)[0].(map[string]any)["harness"] != "Codex Desktop" {
 		t.Fatal("project activity not reported")
 	}
 	invoke("report_agent_activity", tracker.Doc{"projectId": pid, "agent": "builder", "active": false})

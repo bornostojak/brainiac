@@ -12,13 +12,14 @@
 #agent-panel { margin-top:12px; padding:12px 15px; }
 #agent-count { font-weight:400; font-size:10px; }
 .agent-scroll { overflow-x:auto; margin-top:8px; }
-.agent-table { width:100%; min-width:740px; border-collapse:collapse; table-layout:fixed; font-size:11px; }
+.agent-table { width:100%; min-width:850px; border-collapse:collapse; table-layout:fixed; font-size:11px; }
 .agent-table th { text-align:left; color:var(--muted); font-size:10px; font-weight:500; padding:4px 7px 6px; border-bottom:1px solid var(--line); }
-.agent-table th:nth-child(1) { width:16%; }
-.agent-table th:nth-child(2) { width:10%; }
+.agent-table th:nth-child(1) { width:15%; }
+.agent-table th:nth-child(2) { width:6%; text-align:center; }
 .agent-table th:nth-child(3) { width:14%; }
-.agent-table th:nth-child(4) { width:21%; }
-.agent-table th:nth-child(5),.agent-table th:nth-child(6),.agent-table th:nth-child(7) { width:13%; }
+.agent-table th:nth-child(4) { width:13%; }
+.agent-table th:nth-child(5) { width:19%; }
+.agent-table th:nth-child(6),.agent-table th:nth-child(7),.agent-table th:nth-child(8) { width:11%; }
 .agent-table th small { display:block; font-size:9px; }
 .agent-table td { padding:5px 7px; border-bottom:1px solid #edf0e9; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .agent-table tr:last-child td { border-bottom:0; }
@@ -50,10 +51,12 @@
  #work-text { -webkit-line-clamp:3; }
  #agent-panel { padding:12px 10px; }
  #agent-panel .line { flex-wrap:wrap; gap:5px; }
- .agent-table { min-width:700px; }
+ .agent-table { min-width:810px; }
  .project-view .head,.project-view .row { grid-template-columns:20px minmax(70px,1fr) 64px 72px 14px; gap:5px; }
  .project-view .row > .usage-inline { grid-column:2/-1; }
  .agent-tooltip { left:0; min-width:210px; max-width:75vw; }
 }
 
 #lessons-panel{margin-top:12px;padding:12px 15px}.lesson-preview{font-size:12px;margin:6px 0}.lesson-preview small{font-size:10px}.review-filters{justify-content:start;flex-wrap:wrap;gap:9px 14px}.review-filters label{display:flex;align-items:center;gap:5px}.review-filters input{font:inherit;border:1px solid var(--line);border-radius:6px;padding:5px 7px;width:130px;background:white}.review-filters input[type=number]{width:95px}.review-row{display:grid;grid-template-columns:minmax(200px,1fr) 130px 140px 160px;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;list-style:none}.review-row::-webkit-details-marker{display:none}.review-item+.review-item{border-top:1px solid var(--line)}.review-row:hover{background:#f7f9f4}.review-message{font-size:12px;overflow-wrap:anywhere;white-space:pre-wrap}.review-detail{border-top:1px solid #edf0e9;padding:12px 14px;background:#f9faf7;font-size:12px;overflow-wrap:anywhere}.review-detail p{white-space:pre-wrap}.lesson-content{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin:12px 0}.review-row:focus-visible{outline:2px solid #53775c;outline-offset:-2px}@media(max-width:760px){.review-row{grid-template-columns:minmax(0,1fr) 115px;gap:7px}.lesson-content{grid-template-columns:1fr}.review-filters{flex-direction:row}.review-filters input{width:120px}}
+
+.agent-table .agent-vendor{text-align:center;padding:3px 5px}.vendor-button{display:inline-flex;align-items:center;justify-content:center;width:30px;height:28px;padding:4px;border:0;border-radius:5px;background:transparent;cursor:pointer;color:#293b33}.vendor-button:hover{background:#edf2e8}.vendor-button:focus-visible{outline:2px solid #53775c;outline-offset:1px}.vendor-button img{display:block;width:20px;height:20px;object-fit:contain}.vendor-fallback{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid var(--line);border-radius:5px;font-size:11px;font-weight:600;background:#f1f4ee}.agent-harness{color:var(--muted)}.copy-status{position:fixed;left:16px;bottom:16px;z-index:25;background:#293b33;color:white;border-radius:6px;padding:8px 12px;font-size:12px;box-shadow:0 2px 10px #0002}.clipboard-fallback{position:fixed;left:-10000px;top:0;width:1px;height:1px;opacity:0}

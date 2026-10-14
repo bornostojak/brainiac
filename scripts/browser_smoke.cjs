@@ -34,17 +34,17 @@ async function api(method, path, payload) {
     contextLimit: 200000, accountRemainingPercent: 45, observedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
   });
   await api('POST', `/projects/${project.id}/reports`, {
-    agent: 'browser-builder', provider: 'OpenAI', workingOn: 'API implementation',
+    agent: 'browser-builder', provider: 'OpenAI', harness: 'Codex Desktop', workingOn: 'API implementation',
     workSummary: 'Building API validation; checking error responses next.',
     tasks: [{ taskId: root.id, workingOn: 'Building request validation' }],
   });
   await api('POST', `/projects/${project.id}/reports`, {
-    agent: 'browser-helper', provider: 'OpenAI', model: 'helper-model', workingOn: 'Reviewing edge cases',
+    agent: 'browser-helper', provider: 'OpenAI', harness: 'OpenCode', model: 'helper-model', workingOn: 'Reviewing edge cases',
     tasks: [{ taskId: root.id, workingOn: 'Reviewing edge cases' }],
     usage: { tokenBudget: 12000, tokensUsed: 4000, tokensRemaining: 8000, contextTokens: 10000, contextLimit: 50000, accountRemainingPercent: 70 },
   });
   await api('POST', `/projects/${project.id}/reports`, {
-    agent: 'browser-reviewer', provider: 'Anthropic', model: 'reviewer-model', workingOn: 'Checking acceptance',
+    agent: 'browser-reviewer', provider: 'Anthropic', harness: 'Claude Code', model: 'reviewer-model', workingOn: 'Checking acceptance',
     tasks: [{ taskId: child.id, workingOn: 'Acceptance verification' }],
     usage: { tokensRemaining: 9000 },
   });
@@ -61,7 +61,20 @@ async function api(method, path, payload) {
     const builder = page.locator('.agent-table tr[data-agent="browser-builder"]');
     const helper = page.locator('.agent-table tr[data-agent="browser-helper"]');
     const reviewer = page.locator('.agent-table tr[data-agent="browser-reviewer"]');
-    assert.equal(await builder.locator('td').nth(1).innerText(), 'OpenAI');
+    assert.equal(await builder.locator('.vendor-button').getAttribute('title'), 'OpenAI');
+    assert.equal(await builder.locator('.vendor-button img').getAttribute('src'), '/assets/vendor-icons/openai.svg');
+    assert.equal(await builder.locator('.agent-harness').innerText(), 'Codex Desktop');
+    assert.equal(await helper.locator('.agent-harness').innerText(), 'OpenCode');
+    assert.equal(await reviewer.locator('.agent-harness').innerText(), 'Claude Code');
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base });
+    await builder.getByRole('button', { name: 'Copy OpenAI vendor name' }).click();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'OpenAI');
+    await page.evaluate(() => { window.testClipboard = navigator.clipboard; Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined }); });
+    await reviewer.getByRole('button', { name: 'Copy Anthropic vendor name' }).click();
+    assert.ok((await page.locator('.copy-status').innerText()).includes('Copied Anthropic'));
+    await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: window.testClipboard }));
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'Anthropic');
+    await page.waitForFunction(() => [...document.querySelectorAll('.vendor-button img')].every(img => img.complete && img.naturalWidth > 0));
     assert.equal(await builder.locator('td').nth(2).innerText(), 'reported-model');
     assert.equal(await helper.locator('td').nth(2).innerText(), 'helper-model');
     assert.ok((await builder.locator('.limit-cell').nth(0).innerText()).includes('4K / 20K'));
@@ -102,6 +115,14 @@ async function api(method, path, payload) {
     await page.getByLabel('Search', { exact: true }).fill('Subtask verification');
     assert.equal(await page.locator('.item').count(), 1);
     await page.getByLabel('Search', { exact: true }).fill('');
+    for (const [agent, provider] of [['browser-zai', 'Z.ai'], ['browser-google', 'Google'], ['browser-custom', 'Other vendor']]) {
+      await api('POST', `/projects/${project.id}/reports`, { agent, provider, harness: 'OpenCode' });
+    }
+    await page.waitForFunction(() => document.querySelectorAll('.agent-table tbody tr').length === 6);
+    await page.waitForFunction(() => [...document.querySelectorAll('.vendor-button img')].every(img => img.complete && img.naturalWidth > 0));
+    assert.equal(await page.locator('[data-agent="browser-custom"] .vendor-fallback').innerText(), 'O');
+    assert.equal(await page.locator('[data-agent="browser-custom"] .vendor-button').getAttribute('title'), 'Other vendor');
+    assert.equal(await builder.locator('.agent-harness').innerText(), 'Codex Desktop');
     await page.screenshot({ path: output, fullPage: true });
     for (const agent of ['browser-builder', 'browser-helper']) {
       await api('POST', `/projects/${project.id}/agents/${agent}/activity`, { active: false });
@@ -264,6 +285,6 @@ async function api(method, path, payload) {
     await page.screenshot({ path: output.replace(/\.png$/, '-notifications.png'), fullPage: true });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     assert.deepEqual(errors, []);
-    console.log('Browser acceptance passed: 2:1 header, live work summary, compact agent/model rows, exact usage bars, unknown limits, mobile table; attention-only cross-project notices, native-chat links, polling, subtasks, SSE, filters, knowledge, scoped lesson memory/revisions and paginated live notification review.');
+    console.log('Browser acceptance passed: 2:1 header, live work summary, compact agent/model/harness rows, vendor icons/hover/clipboard and HTTP copy fallback, exact usage bars, unknown limits, mobile table; attention-only cross-project notices, native-chat links, polling, subtasks, SSE, filters, knowledge, scoped lesson memory/revisions and paginated live notification review.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
